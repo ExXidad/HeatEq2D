@@ -28,19 +28,23 @@ private:
 	Domain *domain;
 	BoundingRect *boundingRect;
 
-	std::vector<double> transitionProbabilities{0.2125,0.2125,0.2125,0.3625};
+	std::vector<double> transitionProbabilities{0.246667,0.246667,0.246667,0.26};
+	std::vector<vec2i> seedParticles{};
 
 private:
 	std::mt19937 gen;
 	std::uniform_int_distribution<> randI;
+	std::uniform_int_distribution<> randJ;
 	std::uniform_int_distribution<> uid;
 	std::uniform_real_distribution<> urd;
 
 private:
 	double iToX(const int &i);
+
 	double jToY(const int &j);
 
 	bool collidesAnything(const int &j, const int &i);
+
 	bool dendriteOrDomainContains(const int &j, const int &i);
 
 	int neighbours4(const int &j, const int &i);
@@ -56,10 +60,14 @@ public:
 
 	void addNucleus(const int &j, const int &i);
 
+	void randomSeed(const int &N);
+
 	void solve(const int &N, const double &reactionProbability);
 
 	void exportDendrite(std::fstream &file);
+
 	void exportComputationRegion(std::fstream &file);
+
 	void exportData(std::fstream &file);
 };
 

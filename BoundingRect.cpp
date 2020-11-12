@@ -6,7 +6,8 @@
 
 BoundingRect::BoundingRect(const double &xmin, const double &xmax, const double &ymin, const double &ymax)
 {
-	if (xmax <= xmin || ymax <= ymin) throw std::invalid_argument("Error: wrong bounding rectangle dimensions");
+	if (xmax <= xmin || ymax <= ymin)
+	{ throw std::invalid_argument("Error: wrong bounding rectangle dimensions"); }
 	size = {{xmin, xmax},
 			{ymin, ymax}};
 }

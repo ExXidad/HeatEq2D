@@ -18,6 +18,7 @@ public:
 	void addDomainFunction(bool(&domainFunction)(const double &, const double &));
 
 	bool intersectionContains(const double &x, const double &y);
+
 	bool unionContains(const double &x, const double &y);
 };
 
