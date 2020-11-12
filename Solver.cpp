@@ -32,6 +32,7 @@ Solver::Solver(BoundingRect &boundingRect, Domain &domain, const double &h)
 
 	gen = std::mt19937(time(nullptr));
 	randI = std::uniform_int_distribution<>(0, NX - 1);
+	uid = std::uniform_int_distribution<>(0, 1);
 	urd = std::uniform_real_distribution<>(0, 1);
 }
 
@@ -68,45 +69,54 @@ void Solver::solve(const int &N, const double &reactionProbability)
 		while (true) {
 			vec2i shift = randomShift();
 
-			if (!collides(particle[0], particle[1])) {
+			if (!collidesAnything(particle[0], particle[1])) {
 				particle += shift;
 				if (!boundingRect->contains(iToX(particle[1]), jToY(particle[0]))) particle = {0, randI(gen)};
-			}
+			} else if (urd(gen) <= reactionProbability) {
+				if (dendrite[particle[0] + 1][particle[1]]) {
+					int n1 = -1, n2 = -1;
 
-			if (collides(particle[0], particle[1]))
-				if (urd(gen) <= reactionProbability) {
+					if (boundingRect->contains(iToX(particle[1] + 1), jToY(particle[0])) &&
+						!dendrite[particle[0]][particle[1] + 1])
+						if (!dendrite[particle[0] + 1][particle[1] + 1] &&
+							dendrite[particle[0] + 2][particle[1] + 1])
+							n1 = neighbours4(particle[0] + 1, particle[1] + 1);
+
+					if (boundingRect->contains(iToX(particle[1] - 1), jToY(particle[0])) &&
+						!dendrite[particle[0]][particle[1] - 1])
+						if (!dendrite[particle[0] + 1][particle[1] - 1] &&
+							dendrite[particle[0] + 2][particle[1] - 1])
+							n2 = neighbours4(particle[0] + 1, particle[1] - 1);
+
+					if (n1 == -1 && n2 == -1) dendrite[particle[0]][particle[1]] = true;
+					else if (n2 > n1) dendrite[particle[0] + 1][particle[1] - 1] = true;
+					else if (n1 > n2) dendrite[particle[0] + 1][particle[1] + 1] = true;
+					else if (n1 == n2) dendrite[particle[0] + 1][particle[1] - 1 + uid(gen) * 2] = true;
+				} else
 					dendrite[particle[0]][particle[1]] = true;
-					if (i % std::max(1, static_cast<int>(1. * N / 100)) == 0)
-						std::cout << "Progress: " << 1. * i / N * 100 << "%" << std::endl;
-					break;
-				} else {
-					vec2i secondaryShift = randomShift();
-					while (contains((particle + secondaryShift)[0],
-									(particle + secondaryShift)[1])) secondaryShift = randomShift();
+
+				if (i % std::max(1, static_cast<int>(1. * N / 100)) == 0)
+					std::cout << "Progress: " << 1. * i / N * 100 << "%" << std::endl;
+				break;
+			} else {
+				vec2i secondaryShift = randomShift();
+				vec2i tmpParticle = particle + secondaryShift;
+				if (!boundingRect->contains(iToX(tmpParticle[1]), jToY(tmpParticle[0]))) {
+					particle = {0, randI(gen)};
+				} else if (!dendriteOrDomainContains(tmpParticle[0], tmpParticle[1])) {
+					particle = tmpParticle;
 				}
+			}
 		}
 	}
 }
 
-bool Solver::collides(const int &j, const int &i)
+bool Solver::collidesAnything(const int &j, const int &i)
 {
-	for (int k = -1; k <= 1; ++k)
-		for (int l = -1; l <= 1; ++l)
-			if (abs(k) xor abs(l)) {
-				int newJ = j + k, newI = i + l;
-
-				if (NY <= newJ) newJ = NY - 1;
-				if (newJ < 0) newJ = 0;
-
-				if (NX <= newI) newI = NY - 1;
-				if (newI < 0) newI = 0;
-
-				if (dendrite[newJ][newI] || domainMesh[newJ][newI]) return true;
-			}
-	return false;
+	return neighbours4(j, i);
 }
 
-bool Solver::contains(const int &j, const int &i)
+bool Solver::dendriteOrDomainContains(const int &j, const int &i)
 {
 	return dendrite[j][i] || domainMesh[j][i];
 }
@@ -151,14 +161,41 @@ vec2i Solver::randomShift()
 	double randNumber = urd(gen);
 	for (int k = 0; k < transitionProbabilities.size(); ++k) {
 		if (randNumber <= transitionProbabilities[k]) {
-			if (k == 0) --dJ;
-			if (k == 1) --dI;
-			if (k == 2) ++dJ;
-			if (k == 3) ++dI;
+			if (k == 0) ++dI;
+			if (k == 1) --dJ;
+			if (k == 2) --dI;
+			if (k == 3) ++dJ;
 			break;
 		} else {
 			randNumber -= transitionProbabilities[k];
 		}
 	}
-	return vec2i(dJ, dI);
+	return {dJ, dI};
+}
+
+int Solver::neighbours4(const int &j, const int &i)
+{
+	int neighbours = 0;
+	for (int k = -1; k <= 1; ++k)
+		for (int l = -1; l <= 1; ++l)
+			if (abs(k) xor abs(l)) {
+				int newJ = j + k, newI = i + l;
+
+				//check whether (j, i) touches domain or dendrite
+				if (boundingRect->contains(iToX(newI), jToY(newJ)) &&
+					(dendrite[newJ][newI] || domainMesh[newJ][newI]))
+					++neighbours;
+			}
+	return neighbours;
+}
+
+vec2i Solver::rectifyJI(const int &j, const int &i)
+{
+	int newJ = j, newI = i;
+	if (NY <= newJ) newJ = NY - 1;
+	if (newJ < 0) newJ = 0;
+
+	if (NX <= newI) newI = NY - 1;
+	if (newI < 0) newI = 0;
+	return {newJ, newI};
 }

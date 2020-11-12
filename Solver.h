@@ -28,19 +28,24 @@ private:
 	Domain *domain;
 	BoundingRect *boundingRect;
 
-	std::vector<double> transitionProbabilities{1. / 6, 1. / 6, 1. / 2, 1. / 6};
+	std::vector<double> transitionProbabilities{0.2125,0.2125,0.2125,0.3625};
 
 private:
 	std::mt19937 gen;
 	std::uniform_int_distribution<> randI;
+	std::uniform_int_distribution<> uid;
 	std::uniform_real_distribution<> urd;
 
 private:
 	double iToX(const int &i);
 	double jToY(const int &j);
 
-	bool collides(const int &j, const int &i);
-	bool contains(const int &j, const int &i);
+	bool collidesAnything(const int &j, const int &i);
+	bool dendriteOrDomainContains(const int &j, const int &i);
+
+	int neighbours4(const int &j, const int &i);
+
+	vec2i rectifyJI(const int &j, const int &i);
 
 	vec2i randomShift();
 

@@ -22,10 +22,10 @@ int main()
 
 	Domain domain;
 	domain.addDomainFunction(DF1);
-	domain.addDomainFunction(DF2);
+//	domain.addDomainFunction(DF2);
 
-	Solver solver(boundingRect, domain, 0.02);
-	solver.solve(10000, 1);
+	Solver solver(boundingRect, domain, 0.01);
+	solver.solve(300000, 1);
 
 	std::fstream file;
 	file.open("domain.txt", std::ios::out);
