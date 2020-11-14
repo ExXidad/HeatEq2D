@@ -7,6 +7,7 @@
 
 #include <random>
 #include <ctime>
+#include <cmath>
 #include <iostream>
 #include <fstream>
 
@@ -22,13 +23,18 @@ private:
 	double h;
 	int NX, NY;
 
+	double U = 10;
+	double mu = 1, D = 1, Z = 1;
+
 	bool **domainMesh;
 	bool **dendrite;
+	double **electricPotential;
+	double **electricPotentialTemporary;
+	vec2d **electricField;
 
 	Domain *domain;
 	BoundingRect *boundingRect;
 
-	std::vector<double> transitionProbabilities{0.246667,0.246667,0.246667,0.26};
 	std::vector<vec2i> seedParticles{};
 
 private:
@@ -51,7 +57,17 @@ private:
 
 	vec2i rectifyJI(const int &j, const int &i);
 
-	vec2i randomShift();
+	vec2i randomShift(const int &j, const int &i);
+
+	void updateElectricPotential(const double &absError);
+
+	void updateElectricField();
+
+	double epf(const int &j, const int &i);
+
+	bool checkEPForConvergence(const double &absError);
+
+	bool computationAreaContains(const int &j, const int &i);
 
 public:
 	Solver(BoundingRect &boundingRect, Domain &domain, const double &h);
@@ -69,6 +85,10 @@ public:
 	void exportComputationRegion(std::fstream &file);
 
 	void exportData(std::fstream &file);
+
+	void exportPotential(std::fstream &file);
+
+	void exportField(std::fstream &file);
 };
 
 
