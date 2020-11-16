@@ -12,7 +12,7 @@
 namespace myTypedefs
 {
 //    typedef std::vector<double> vecD;
-    typedef Eigen::Vector2d vec2d;
+	typedef Eigen::Vector2d vec2d;
 	typedef Eigen::Vector2i vec2i;
 }
 
