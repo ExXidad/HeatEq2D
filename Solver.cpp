@@ -4,9 +4,10 @@
 
 #include "Solver.h"
 
-Solver::Solver(BoundingRect &boundingRect, Domain &domain, const double &h)
+Solver::Solver(BoundingRect &boundingRect, Domain &domain, const double &h, const double &c)
 {
 	this->h = h;
+	this->c = c;
 	this->boundingRect = &boundingRect;
 	this->domain = &domain;
 
@@ -18,21 +19,20 @@ Solver::Solver(BoundingRect &boundingRect, Domain &domain, const double &h)
 		domainMesh[i] = new bool[NX];
 
 
-	dendrite = new bool *[NY];
+	uPrev = new double *[NY];
 	for (int i = 0; i < NX; ++i)
-		dendrite[i] = new bool[NX];
+		uPrev[i] = new double[NX];
+
+	uNext = new double *[NY];
+	for (int i = 0; i < NX; ++i)
+		uNext[i] = new double[NX];
 
 	for (int j = 0; j < NY; ++j) {
 		for (int i = 0; i < NX; ++i) {
-			if (domain.unionContains(iToX(i), jToY(j)))
+			if (domain.contains(iToX(i), jToY(j)))
 				domainMesh[j][i] = true;
 		}
 	}
-
-
-	gen = std::mt19937(time(nullptr));
-	randI = std::uniform_int_distribution<>(0, NX - 1);
-	urd = std::uniform_real_distribution<>(0, 1);
 }
 
 Solver::~Solver()
@@ -42,8 +42,12 @@ Solver::~Solver()
 	delete[] domainMesh;
 
 	for (int j = 0; j < NY; ++j)
-		delete[] dendrite[j];
-	delete[] dendrite;
+		delete[] uPrev[j];
+	delete[] uPrev;
+
+	for (int j = 0; j < NY; ++j)
+		delete[] uNext[j];
+	delete[] uNext;
 }
 
 double Solver::iToX(const int &i)
@@ -56,66 +60,69 @@ double Solver::jToY(const int &j)
 	return boundingRect->getSize()[1][1] - (h / 2 + j * h);
 }
 
-void Solver::addNucleus(const int &j, const int &i)
+void Solver::solve(double(&ICF)(const double &, const double &), const TVDLimitersTypes &type, const double &dt,
+                   const double &tMax)
 {
-	dendrite[j][i] = true;
-}
+	int N = static_cast<int>(tMax / dt) + 1;
+	this->tMax = tMax;
+	this->g = c * dt / h;
 
-void Solver::solve(const int &N, const double &reactionProbability)
-{
-	for (int i = 0; i < N; ++i) {
-		vec2i particle{0, randI(gen)};
-		while (true) {
-			vec2i shift = randomShift();
+	for (int j = 0; j < NY; ++j) {
+		for (int i = 0; i < NX; ++i) {
+			uPrev[j][i] = ICF(iToX(i), jToY(j));
+		}
+	}
 
-			if (!collides(particle[0], particle[1])) {
-				particle += shift;
-				if (!boundingRect->contains(iToX(particle[1]), jToY(particle[0]))) particle = {0, randI(gen)};
-			}
+	double
+	(*TVDLimiterFunction)(const double &, const double &, const double &) = &TVDLimitersFunctions::minmodFunction;
 
-			if (collides(particle[0], particle[1]))
-				if (urd(gen) <= reactionProbability) {
-					dendrite[particle[0]][particle[1]] = true;
-					if (i % std::max(1, static_cast<int>(1. * N / 100)) == 0)
-						std::cout << "Progress: " << 1. * i / N * 100 << "%" << std::endl;
-					break;
-				} else {
-					vec2i secondaryShift = randomShift();
-					while (contains((particle + secondaryShift)[0],
-									(particle + secondaryShift)[1])) secondaryShift = randomShift();
+	switch (type) {
+		case MINMOD:
+			TVDLimiterFunction = &TVDLimitersFunctions::minmodFunction;
+			break;
+
+		case MC:
+			break;
+
+		case SUPERBEE:
+			break;
+	}
+
+	save(std::to_string(0));
+
+	for (int tIteration = 0; tIteration < N; ++tIteration) {
+		for (int j = 0; j < NY; ++j) {
+			for (int i = 0; i < NX; ++i) {
+				if (!domainMesh[j][i]) {
+					std::vector<std::vector<double>> neighboursP = getNeighbours(j, i);
+					double uWaveXp = uWave(*TVDLimiterFunction, neighboursP[0][0], uPrev[j][i], neighboursP[1][0]);
+					double uWaveYp = uWave(*TVDLimiterFunction, neighboursP[1][0], uPrev[j][i], neighboursP[1][1]);
+
+					std::vector<std::vector<double>> neighboursM = getNeighbours(j - 1, i - 1);
+					double uWaveXm = uWave(*TVDLimiterFunction, neighboursM[0][0], uPrev[j][i], neighboursM[1][0]);
+					double uWaveYm = uWave(*TVDLimiterFunction, neighboursM[1][0], uPrev[j][i], neighboursM[1][1]);
+
+					uNext[j][i] = uPrev[j][i] - g * ((uWaveXp - uWaveXm) / 2 + (uWaveYp - uWaveYm) / 2);
 				}
+			}
+		}
+		double **tmpPointer = uPrev;
+		uPrev = uNext;
+		uNext = tmpPointer;
+
+		if (tIteration % static_cast<int>(N / 10) == 0) {
+			std::cout << "Progress: " << 1. * tIteration / N * 100 << "%" << std::endl;
+			save(std::to_string(tIteration));
 		}
 	}
 }
 
-bool Solver::collides(const int &j, const int &i)
-{
-	for (int k = -1; k <= 1; ++k)
-		for (int l = -1; l <= 1; ++l)
-			if (abs(k) xor abs(l)) {
-				int newJ = j + k, newI = i + l;
-
-				if (NY <= newJ) newJ = NY - 1;
-				if (newJ < 0) newJ = 0;
-
-				if (NX <= newI) newI = NY - 1;
-				if (newI < 0) newI = 0;
-
-				if (dendrite[newJ][newI] || domainMesh[newJ][newI]) return true;
-			}
-	return false;
-}
-
-bool Solver::contains(const int &j, const int &i)
-{
-	return dendrite[j][i] || domainMesh[j][i];
-}
 
 void Solver::exportDendrite(std::fstream &file)
 {
 	for (int j = 0; j < NY; ++j) {
 		for (int i = 0; i < NX; ++i) {
-			int val = dendrite[j][i];
+			int val = uPrev[j][i];
 			file << val << "\t";
 		}
 		file << std::endl;
@@ -137,28 +144,64 @@ void Solver::exportData(std::fstream &file)
 {
 	for (int j = 0; j < NY; ++j) {
 		for (int i = 0; i < NX; ++i) {
-			if (domainMesh[j][i]) file << 1 << "\t";
-			else if (dendrite[j][i]) file << 2 << "\t";
-			else file << 0 << "\t";
+			file << uPrev[j][i] << "\t";
 		}
 		file << std::endl;
 	}
 }
 
-vec2i Solver::randomShift()
+std::vector<std::vector<double>> Solver::getNeighbours(const int &j, const int &i)
 {
-	int dI = 0, dJ = 0;
-	double randNumber = urd(gen);
-	for (int k = 0; k < transitionProbabilities.size(); ++k) {
-		if (randNumber <= transitionProbabilities[k]) {
-			if (k == 0) --dJ;
-			if (k == 1) --dI;
-			if (k == 2) ++dJ;
-			if (k == 3) ++dI;
-			break;
-		} else {
-			randNumber -= transitionProbabilities[k];
-		}
-	}
-	return vec2i(dJ, dI);
+	double uNextXNeighbour, uPrevXNeighbour;
+	double uNextYNeighbour, uPrevYNeighbour;
+
+	if (i + 1 > NX - 1 || j < 0 || domainMesh[j][i + 1])
+		uNextXNeighbour = 0;
+	else
+		uNextXNeighbour = uPrev[j][i + 1];
+
+	if (i - 1 < 0 || j < 0 || domainMesh[j][i - 1])
+		uPrevXNeighbour = 0;
+	else
+		uPrevXNeighbour = uPrev[j][i - 1];
+
+	if (j + 1 > NY - 1 || i < 0 || domainMesh[j + 1][i])
+		uNextYNeighbour = 0;
+	else
+		uNextYNeighbour = uPrev[j + 1][i];
+
+	if (j - 1 < 0 || i < 0 || domainMesh[j - 1][i])
+		uPrevYNeighbour = 0;
+	else
+		uPrevYNeighbour = uPrev[j - 1][i];
+
+	return {{uPrevXNeighbour, uNextXNeighbour},
+	        {uPrevYNeighbour, uNextYNeighbour}};
+}
+
+double Solver::uWave(double(&TVDLimiterFunction)(const double &, const double &, const double &), const double &f_im1,
+                     const double &f_i, const double &f_ip1)
+{
+	return f_i + (1 - g) / 2 * TVDLimiterFunction(f_im1, f_i, f_ip1);
+}
+
+void Solver::save(const std::string &name)
+{
+	std::fstream file;
+	file.open(name, std::ios::out);
+	exportData(file);
+	file.close();
+}
+
+
+double TVDLimitersFunctions::sgn(const double &x)
+{
+	if (x > 0) return 1;
+	else if (x < 0) return -1;
+	return 0;
+}
+
+double TVDLimitersFunctions::minmodFunction(const double &f_im1, const double &f_i, const double &f_ip1)
+{
+	return std::min(std::abs(f_ip1 - f_i), std::abs(f_i - f_im1)) * sgn(f_ip1 - f_i);
 }

@@ -9,6 +9,7 @@
 #include <ctime>
 #include <iostream>
 #include <fstream>
+#include <string>
 
 #include "Domain.h"
 #include "BoundingRect.h"
@@ -16,46 +17,57 @@
 
 using namespace myTypedefs;
 
+namespace TVDLimitersFunctions
+{
+	double sgn(const double &x);
+
+	double minmodFunction(const double &f_im1, const double &f_i, const double &f_ip1);
+}
+
+enum TVDLimitersTypes
+{
+	MINMOD, MC, SUPERBEE
+};
+
 class Solver
 {
 private:
-	double h;
+	double h, c, tMax, g;
 	int NX, NY;
 
 	bool **domainMesh;
-	bool **dendrite;
+	double **uPrev;
+	double **uNext;
 
 	Domain *domain;
 	BoundingRect *boundingRect;
 
-	std::vector<double> transitionProbabilities{1. / 6, 1. / 6, 1. / 2, 1. / 6};
-
-private:
-	std::mt19937 gen;
-	std::uniform_int_distribution<> randI;
-	std::uniform_real_distribution<> urd;
 
 private:
 	double iToX(const int &i);
+
 	double jToY(const int &j);
 
-	bool collides(const int &j, const int &i);
-	bool contains(const int &j, const int &i);
-
-	vec2i randomShift();
-
 public:
-	Solver(BoundingRect &boundingRect, Domain &domain, const double &h);
+	Solver(BoundingRect &boundingRect, Domain &domain, const double &h, const double &c);
 
 	~Solver();
 
-	void addNucleus(const int &j, const int &i);
+	void solve(double(&ICF)(const double &, const double &), const TVDLimitersTypes &type, const double &dt,
+	           const double &tMax);
 
-	void solve(const int &N, const double &reactionProbability);
+	std::vector<std::vector<double>> getNeighbours(const int &j, const int &i);
+
+	double uWave(double(&TVDLimiterFunction)(const double &, const double &, const double &), const double &f_im1,
+	             const double &f_i, const double &f_ip1);
 
 	void exportDendrite(std::fstream &file);
+
 	void exportComputationRegion(std::fstream &file);
+
 	void exportData(std::fstream &file);
+
+	void save(const std::string &name);
 };
 
 
