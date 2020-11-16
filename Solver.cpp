@@ -45,7 +45,7 @@ Solver::Solver(BoundingRect &boundingRect, Domain &domain, const double &h)
 		electricPotentialTemporary[j] = new double[NX];
 		for (int i = 0; i < NX; ++i)
 		{
-			electricPotentialTemporary[j][i] = 0;
+			electricPotentialTemporary[j][i] = U * (1 - static_cast<double>(j) / NY);
 		}
 	}
 
@@ -271,14 +271,28 @@ void Solver::exportData(std::fstream &file)
 
 vec2i Solver::randomShift(const int &j, const int &i)
 {
-	double coeff = h * Z * mu / (D + h * Z * mu * (electricField[j][i][0] + electricField[j][i][1]));
-	double Px = coeff * electricField[j][i][0];
-	double Py = coeff * electricField[j][i][1];
+	vec2d E = electricField[j][i];
+	double coeff = h * Z * mu / (D + h * Z * mu * (abs(E[0]) + abs(E[1])));
+	double Px = coeff * abs(E[0]);
+	double Py = coeff * abs(E[1]);
 	double basicProb = (1 - Px - Py) / 4;
 
-	std::vector<double> transitionProbabilities{basicProb + Px / 2, basicProb + Py / 2, basicProb, basicProb};
+	std::vector<double> transitionProbabilities(4, basicProb);
+	if (E[0] >= 0)
+	{
+		transitionProbabilities[0] += Px;
+	}
+	else
+	{ transitionProbabilities[2] += Px; }
 
-//	transitionProbabilities = {0, 0, 0, 1};
+	if (E[1] >= 0)
+	{
+		transitionProbabilities[1] += Py;
+	}
+	else
+	{ transitionProbabilities[3] += Py; }
+
+
 
 	int dI = 0, dJ = 0;
 	double randNumber = urd(gen);
@@ -373,6 +387,7 @@ void Solver::updateElectricPotential(const double &absError)
 		{
 			break;
 		}
+
 		++counter;
 	}
 }

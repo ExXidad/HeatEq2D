@@ -24,7 +24,7 @@ private:
 	int NX, NY;
 
 	double U = 10;
-	double mu = 1, D = 1, Z = 1;
+	double mu = 0.001, D = 1, Z = 1;
 
 	bool **domainMesh;
 	bool **dendrite;
