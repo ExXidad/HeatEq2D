@@ -17,13 +17,6 @@
 
 using namespace myTypedefs;
 
-namespace TVDLimitersFunctions
-{
-	double sgn(const double &x);
-
-	double minmodFunction(const double &f_im1, const double &f_i, const double &f_ip1);
-}
-
 enum TVDLimitersTypes
 {
 	MINMOD, MC, SUPERBEE
@@ -32,14 +25,12 @@ enum TVDLimitersTypes
 class Solver
 {
 private:
-	double h, c, tMax, g;
-	int NX, NY;
+	double h, c, CN, dt;
+	int NX, NT, N, saveTStep;
 
-	bool **domainMesh;
-	double **uPrev;
-	double **uNext;
+	double **u;
+	double *uTempNext, *uTempPrevious;
 
-	Domain *domain;
 	BoundingRect *boundingRect;
 
 
@@ -48,22 +39,23 @@ private:
 
 	double jToY(const int &j);
 
+	double uf(const int &i);
+
+private:
+	double sgn(const double &x);
+
+	double minmodFunction(const int &i);
+
+	double uWavePlusHalf(double (Solver::*TVDLimiterFunction)(const int &), const int &i);
+
 public:
-	Solver(BoundingRect &boundingRect, Domain &domain, const double &h, const double &c);
+	Solver(BoundingRect &boundingRect, const double &h, const double &c, const double &saveTRate,
+	       const double &CN = 0.1);
 
 	~Solver();
 
-	void solve(double(&ICF)(const double &, const double &), const TVDLimitersTypes &type, const double &dt,
-	           const double &tMax);
+	void solve(double(&ICF)(const double &, const double &), const TVDLimitersTypes &type);
 
-	std::vector<std::vector<double>> getNeighbours(const int &j, const int &i);
-
-	double uWave(double(&TVDLimiterFunction)(const double &, const double &, const double &), const double &f_im1,
-	             const double &f_i, const double &f_ip1);
-
-	void exportDendrite(std::fstream &file);
-
-	void exportComputationRegion(std::fstream &file);
 
 	void exportData(std::fstream &file);
 
