@@ -46,6 +46,10 @@ private:
 
 	double minmodFunction(const int &i);
 
+	double mcFunction(const int &i);
+
+	double superbeeFunction(const int &i);
+
 	double uWavePlusHalf(double (Solver::*TVDLimiterFunction)(const int &), const int &i);
 
 public:

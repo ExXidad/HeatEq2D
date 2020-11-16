@@ -15,7 +15,7 @@ double ICF1(const double &x, const double &y)
 
 double ICF2(const double &x, const double &y)
 {
-	if (-3 <= x && x <= 3) return pow(2.71,-x*x/2)-pow(2.71,-9./2);
+	if (-3 <= x && x <= 3) return -pow(2.71,-x*x/2)-pow(2.71,-9./2);
 	return 0;
 }
 
@@ -25,7 +25,7 @@ int main()
 	BoundingRect boundingRect(-10, 10, 0, 10);
 
 	Solver solver(boundingRect, 0.05, 1, 0.1, 0.1);
-	solver.solve(ICF2, MINMOD);
+	solver.solve(ICF2, MC);
 
 	solver.save("data");
 	return 0;

@@ -14,6 +14,8 @@ Solver::Solver(BoundingRect &boundingRect, const double &h, const double &c, con
 	dt = std::abs(CN * h / c);
 	N = static_cast<int>(boundingRect.getYSize() / dt);
 
+	if (c <= 0) this->CN *= -1;
+
 	if (saveTRate <= 0)
 	{
 		this->saveTStep = 1;
@@ -21,7 +23,7 @@ Solver::Solver(BoundingRect &boundingRect, const double &h, const double &c, con
 	} else
 	{
 		this->saveTStep = std::round(saveTRate / dt);
-		NT = static_cast<int>(1.*N/saveTStep)+1;
+		NT = static_cast<int>(1. * N / saveTStep) + 1;
 	}
 
 	NX = static_cast<int>(boundingRect.getXSize() / h) - 1;
@@ -78,9 +80,11 @@ void Solver::solve(double(&ICF)(const double &, const double &), const TVDLimite
 			break;
 
 		case MC:
+			TVDLimiterFunction = &Solver::mcFunction;
 			break;
 
 		case SUPERBEE:
+			TVDLimiterFunction = &Solver::superbeeFunction;
 			break;
 	}
 
@@ -101,17 +105,12 @@ void Solver::solve(double(&ICF)(const double &, const double &), const TVDLimite
 			double uWavePos = uWavePlusHalf(TVDLimiterFunction, i);
 			double uWaveNeg = uWavePlusHalf(TVDLimiterFunction, i - 1);
 
-			uTempNext[i] = uTempPrevious[i] - CN * (uWavePos - uWaveNeg);
+			uTempNext[i] = uTempPrevious[i] - CN * (uWavePos - uWaveNeg);//*(uf(i+1)-uf(i-1))/2;
 		}
 
 		double *tmpPtr = uTempPrevious;
 		uTempPrevious = uTempNext;
 		uTempNext = tmpPtr;
-
-		if (j % std::max(1, static_cast<int>(N / 100)) == 0)
-		{
-			std::cout << "Progress: " << 1. * j / std::max<double>(1, N) * 100 << "%" << std::endl;
-		}
 	}
 }
 
@@ -138,10 +137,10 @@ void Solver::save(const std::string &name)
 
 double Solver::uf(const int &i)
 {
-	if (i < 0 || i >= NX)
-	{
+	if (i < 0)
 		return 0;
-	}
+	else if (i >= NX) return 0;
+
 	return uTempPrevious[i];
 }
 
@@ -166,4 +165,18 @@ double Solver::minmodFunction(const int &i)
 {
 	double f_im1 = uf(i - 1), f_i = uf(i), f_ip1 = uf(i + 1);
 	return std::min(std::abs(f_ip1 - f_i), std::abs(f_i - f_im1)) * sgn(f_ip1 - f_i);
+}
+
+double Solver::superbeeFunction(const int &i)
+{
+	double f_im1 = uf(i - 1), f_i = uf(i), f_ip1 = uf(i + 1);
+	return std::max(std::min(std::abs(f_ip1 - f_i), 2 * std::abs(f_i - f_im1)),
+	                std::min(2 * std::abs(f_ip1 - f_i), std::abs(f_i - f_im1)));
+}
+
+double Solver::mcFunction(const int &i)
+{
+	double f_im1 = uf(i - 1), f_i = uf(i), f_ip1 = uf(i + 1);
+	return std::min({std::abs(f_ip1 - f_im1) / 2, 2 * std::abs(f_ip1 - f_i), 2 * std::abs(f_i - f_im1)}) *
+	       sgn(f_ip1 - f_i);
 }
