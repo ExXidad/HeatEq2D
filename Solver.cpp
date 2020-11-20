@@ -46,6 +46,7 @@ Solver::Solver(BoundingRect &boundingRect, Domain &domain, const double &h)
 		for (int i = 0; i < NX; ++i)
 		{
 			electricPotentialTemporary[j][i] = U * (1 - static_cast<double>(j) / NY);
+			electricPotentialTemporary[j][i] = accessFuncIncludingBC(j,i,electricPotentialTemporary);
 		}
 	}
 
@@ -64,11 +65,6 @@ Solver::Solver(BoundingRect &boundingRect, Domain &domain, const double &h)
 	electricField = new vec2d *[NY];
 	for (int i = 0; i < NY; ++i)
 		electricField[i] = new vec2d[NX];
-
-	for (int i = 0; i < NX; ++i)
-	{
-		electricPotentialTemporary[0][i] = U;
-	}
 
 
 	gen = std::mt19937(time(nullptr));
@@ -139,7 +135,7 @@ void Solver::solve(const double &fraction, const double &reactionProbability)
 	}
 
 	// Find initial EF
-	updateElectricPotential(0.01);
+	updateElectricPotential(0.);
 	updateElectricField();
 
 	for (int i = 0; i < N; ++i)
@@ -398,55 +394,38 @@ void Solver::updateElectricPotential(const double &absError)
 
 	double rNormSq0 = 0;
 	rNormSq = 0;
-	applyOperator(r, electricPotentialTemporary);
+	applyOperator(r, electricPotentialTemporary, &Solver::accessFuncIncludingBC);
 	printArray(r);
 
 	for (int j = 0; j < NY; ++j)
 	{
 		for (int i = 0; i < NX; ++i)
 		{
-			r[j][i] = bf(j + 1, i) + bf(j - 1, i) + bf(j, i + 1) + bf(j, i - 1) - 4 * bf(j, i)-r[j][i];
+			r[j][i] *= -1;
 			d[j][i] = r[j][i];
 			rNormSq += r[j][i] * r[j][i];
 		}
 	}
 	rNormSq0 = rNormSq;
-	printArray(r);
 
 	while (counter <= NX * NY && rNormSq > absError * absError * rNormSq0)
 	{
-		applyOperator(q, d);
+		applyOperator(q, d, &Solver::accessFuncNotIncludingBC);
 
 		alpha = rNormSq / scalarProduct(d, q);
+		rNormSqPrev = rNormSq;
+		rNormSq = 0;
 
 		for (int j = 0; j < NY; ++j)
 		{
 			for (int i = 0; i < NX; ++i)
 			{
 				electricPotential[j][i] = electricPotentialTemporary[j][i] + alpha * d[j][i];
-			}
-		}
-
-//		applyOperator(r, electricPotential);
-//		for (int j = 0; j < NY; ++j)
-//		{
-//			for (int i = 0; i < NX; ++i)
-//			{
-//				r[j][i] = bf(j, i) - r[j][i];
-//			}
-//		}
-
-		for (int j = 0; j < NY; ++j)
-		{
-			for (int i = 0; i < NX; ++i)
-			{
 				r[j][i] = r[j][i] - alpha * q[j][i];
+				rNormSq += r[j][i] * r[j][i];
 			}
 		}
 
-
-		rNormSqPrev = rNormSq;
-		rNormSq = scalarProduct(r, r);
 		beta = rNormSq / rNormSqPrev;
 
 		for (int j = 0; j < NY; ++j)
@@ -468,54 +447,13 @@ void Solver::updateElectricPotential(const double &absError)
 
 void Solver::updateElectricField()
 {
-	for (int j = 0; j < NY; ++j)
-	{
-		for (int i = 0; i < NX; ++i)
-		{
-			electricField[j][i] = {(epf(j, i + 1) + epf(j, i - 1)) / 2 / h, (epf(j + 1, i) + epf(j - 1, i)) / 2 / h};
-		}
-	}
-}
-
-double Solver::epf(const int &j, const int &i)
-{
-	if (j < 0)
-	{
-		return U;
-	}
-
-	if (!computationAreaContains(j, i))
-	{
-		vec2i rectified = rectifyJI(j, i);
-		return electricPotentialTemporary[rectified[0]][rectified[1]];
-	}
-
-
-	if (dendriteOrDomainContains(j, i))
-	{
-		return 0;
-	}
-
-	return electricPotentialTemporary[j][i];
-}
-
-bool Solver::checkEPForConvergence(const double &absError)
-{
-	double maxErr = 0;
-	for (int j = 0; j < NY; ++j)
-	{
-		for (int i = 0; i < NX; ++i)
-		{
-			maxErr = std::max<double>(abs(electricPotentialTemporary[j][i] - electricPotential[j][i]), maxErr);
-			if (maxErr > absError)
-			{
-				std::cout << "Didn't converge. Maximum error: " << maxErr << std::endl;
-				return false;
-			}
-		}
-	}
-	std::cout << "Converged. Maximum error: " << maxErr << std::endl << std::endl;
-	return true;
+//	for (int j = 0; j < NY; ++j)
+//	{
+//		for (int i = 0; i < NX; ++i)
+//		{
+//			electricField[j][i] = {(epf(j, i + 1) + epf(j, i - 1)) / 2 / h, (epf(j + 1, i) + epf(j - 1, i)) / 2 / h};
+//		}
+//	}
 }
 
 void Solver::exportPotential(std::fstream &file)
@@ -547,29 +485,9 @@ void Solver::exportField(std::fstream &file)
 	}
 }
 
-double Solver::bf(const int &j, const int &i)
-{
-	if (j < 0)
-	{
-		return U;
-	}
 
-	if (!computationAreaContains(j, i))
-	{
-		vec2i rectified = rectifyJI(j, i);
-		return electricPotentialTemporary[rectified[0]][rectified[1]];
-	}
-
-
-	if (dendriteOrDomainContains(j, i))
-	{
-		return 0;
-	}
-
-	return electricPotentialTemporary[j][i];
-}
-
-void Solver::applyOperator(double **result, double **x)
+void Solver::applyOperator(double **result, double **x,
+						   double (Solver::*accessFunction)(const int &, const int &, double **))
 {
 	for (int j = 0; j < NY; ++j)
 	{
@@ -588,45 +506,10 @@ void Solver::applyOperator(double **result, double **x)
 					{
 						int newJ = j + k, newI = i + l;
 
-						//check whether (j, i) touches domain or dendrite
-						if (!bcf(newJ, newI))
-						{
-							result[j][i] += x[newJ][newI] - x[j][i];
-						}
+						result[j][i] += (this->*accessFunction)(newJ, newI, x) - x[j][i];
 					}
 		}
 	}
-}
-
-double Solver::ff0(double **x, const int &j, const int &i)
-{
-//	if (!computationAreaContains(j, i) || dendriteOrDomainContains(j, i) || j < 0)
-//	{
-//		return 0;
-//	}
-//
-//	return x[j][i];
-
-//	if (j < 0)
-//	{
-//		return U;
-//	}
-
-
-
-	if (!computationAreaContains(j, i))
-	{
-		vec2i rectified = rectifyJI(j, i);
-		return x[rectified[0]][rectified[1]];
-	}
-
-
-//	if (dendriteOrDomainContains(j, i))
-//	{
-//		return 0;
-//	}
-
-	return x[j][i];
 }
 
 double Solver::scalarProduct(double **x, double **y)
@@ -671,4 +554,48 @@ void Solver::printArray(bool **arr)
 bool Solver::bcf(const int &j, const int &i)
 {
 	return (!computationAreaContains(j, i) || dendriteOrDomainContains(j, i) || j < 0);
+}
+
+double Solver::accessFuncIncludingBC(const int &j, const int &i, double **x)
+{
+	if (j < 0)
+	{
+		return 2 * U;
+	}
+
+	if (!computationAreaContains(j, i))
+	{
+		vec2i rectified = rectifyJI(j, i);
+		return x[rectified[0]][rectified[1]];
+	}
+
+
+	if (dendriteOrDomainContains(j, i))
+	{
+		return 0;
+	}
+
+	return x[j][i];
+}
+
+double Solver::accessFuncNotIncludingBC(const int &j, const int &i, double **x)
+{
+	if (j < 0)
+	{
+		return 0;
+	}
+
+	if (!computationAreaContains(j, i))
+	{
+		vec2i rectified = rectifyJI(j, i);
+		return x[rectified[0]][rectified[1]];
+	}
+
+
+	if (dendriteOrDomainContains(j, i))
+	{
+		return 0;
+	}
+
+	return x[j][i];
 }

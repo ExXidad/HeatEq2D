@@ -66,23 +66,17 @@ private:
 
 	void updateElectricField();
 
-	double epf(const int &j, const int &i);
-
-	double ff0(double **x, const int &j, const int &i);
-
-	double bf(const int &j, const int &i);
-
 	double scalarProduct(double **x, double **y);
-
-	bool checkEPForConvergence(const double &absError);
 
 	bool computationAreaContains(const int &j, const int &i);
 
-	void applyOperator(double **result, double **x);
+	void applyOperator(double **result, double **x, double (Solver::*accessFunction)(const int &, const int &, double **x));
 
 	bool bcf(const int &j, const int &i);
 
+	double accessFuncIncludingBC(const int &j, const int &i, double **x);
 
+	double accessFuncNotIncludingBC(const int &j, const int &i, double **x);
 
 public:
 	Solver(BoundingRect &boundingRect, Domain &domain, const double &h);
@@ -106,6 +100,7 @@ public:
 	void exportField(std::fstream &file);
 
 	void printArray(double **arr);
+
 	void printArray(bool **arr);
 };
 
