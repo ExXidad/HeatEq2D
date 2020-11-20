@@ -8,7 +8,7 @@
 //DF - domain function
 bool DF1(const double &x, const double &y)
 {
-	return y <= .2;
+	return y <= 0.6;
 }
 
 bool DF2(const double &x, const double &y)
@@ -18,15 +18,15 @@ bool DF2(const double &x, const double &y)
 
 int main()
 {
-	BoundingRect boundingRect(0, 20, 0, 10);
+	BoundingRect boundingRect(0, 10, 0, 10);
 
 	Domain domain;
 	domain.addDomainFunction(DF1);
 //	domain.addDomainFunction(DF2);
 
-	Solver solver(boundingRect, domain, 0.01);
-	solver.randomSeed(static_cast<int>(4*pow(10,5)));
-	solver.solve(static_cast<int>(5*pow(10,5)), 1);
+	Solver solver(boundingRect, domain, 1);
+	solver.randomSeed(0);
+	solver.solve(0, 0.5);
 
 	std::fstream file;
 	file.open("domain.txt", std::ios::out);

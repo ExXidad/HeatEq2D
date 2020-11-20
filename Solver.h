@@ -24,12 +24,15 @@ private:
 	int NX, NY;
 
 	double U = 10;
-	double mu = 0.001, D = 1, Z = 1;
+	double mu = 0.1, D = 1, Z = 1;
 
 	bool **domainMesh;
 	bool **dendrite;
 	double **electricPotential;
 	double **electricPotentialTemporary;
+	double **r, **d, **q;
+	double alpha, beta, rNormSqPrev, rNormSq;
+
 	vec2d **electricField;
 
 	Domain *domain;
@@ -65,9 +68,21 @@ private:
 
 	double epf(const int &j, const int &i);
 
+	double ff0(double **x, const int &j, const int &i);
+
+	double bf(const int &j, const int &i);
+
+	double scalarProduct(double **x, double **y);
+
 	bool checkEPForConvergence(const double &absError);
 
 	bool computationAreaContains(const int &j, const int &i);
+
+	void applyOperator(double **result, double **x);
+
+	bool bcf(const int &j, const int &i);
+
+
 
 public:
 	Solver(BoundingRect &boundingRect, Domain &domain, const double &h);
@@ -76,9 +91,9 @@ public:
 
 	void addNucleus(const int &j, const int &i);
 
-	void randomSeed(const int &N);
+	void randomSeed(const double &fraction);
 
-	void solve(const int &N, const double &reactionProbability);
+	void solve(const double &fraction, const double &reactionProbability);
 
 	void exportDendrite(std::fstream &file);
 
@@ -89,6 +104,9 @@ public:
 	void exportPotential(std::fstream &file);
 
 	void exportField(std::fstream &file);
+
+	void printArray(double **arr);
+	void printArray(bool **arr);
 };
 
 
