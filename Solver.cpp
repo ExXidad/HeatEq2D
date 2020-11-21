@@ -46,7 +46,7 @@ Solver::Solver(BoundingRect &boundingRect, Domain &domain, const double &h)
 		for (int i = 0; i < NX; ++i)
 		{
 			electricPotentialTemporary[j][i] = U * (1 - static_cast<double>(j) / NY);
-			electricPotentialTemporary[j][i] = accessFuncIncludingBC(j,i,electricPotentialTemporary);
+			electricPotentialTemporary[j][i] = accessFuncIncludingBC(j, i, electricPotentialTemporary);
 		}
 	}
 
@@ -72,9 +72,6 @@ Solver::Solver(BoundingRect &boundingRect, Domain &domain, const double &h)
 	randJ = std::uniform_int_distribution<>(0, NY - 1);
 	uid = std::uniform_int_distribution<>(0, 1);
 	urd = std::uniform_real_distribution<>(0, 1);
-
-	printArray(domainMesh);
-	printArray(electricPotentialTemporary);
 }
 
 Solver::~Solver()
@@ -125,6 +122,41 @@ void Solver::addNucleus(const int &j, const int &i)
 
 void Solver::solve(const double &fraction, const double &reactionProbability)
 {
+	double **x1 = new double *[NY];
+	for (int j = 0; j < NY; ++j)
+	{
+		x1[j] = new double[NX];
+		for (int i = 0; i < NX; ++i)
+		{
+			x1[j][i] = urd(gen);
+		}
+	}
+	double **x2 = new double *[NY];
+	for (int j = 0; j < NY; ++j)
+	{
+		x2[j] = new double[NX];
+		for (int i = 0; i < NX; ++i)
+		{
+			x2[j][i] = urd(gen);
+		}
+	}
+
+	applyOperator(q, x1, &Solver::accessFuncNotIncludingBC);
+	std::cout << "x2^T*A*x1\t" << scalarProduct(x2, q) << std::endl;
+
+
+	applyOperator(q, x2, &Solver::accessFuncNotIncludingBC);
+	std::cout << "x1^T*A*x2\t" << scalarProduct(x1, q) << std::endl;
+
+
+	for (int j = 0; j < NY; ++j)
+		delete[] x1[j];
+	delete[] x1;
+
+	for (int j = 0; j < NY; ++j)
+		delete[] x2[j];
+	delete[] x2;
+
 	int N = static_cast
 			<int>(fraction * NX * NY);
 
@@ -135,7 +167,7 @@ void Solver::solve(const double &fraction, const double &reactionProbability)
 	}
 
 	// Find initial EF
-	updateElectricPotential(0.);
+	updateElectricPotential(pow(10, -4));
 	updateElectricField();
 
 	for (int i = 0; i < N; ++i)
@@ -390,12 +422,21 @@ void Solver::updateElectricPotential(const double &absError)
 {
 	std::cout << "Solving Laplace eq. over computation area" << std::endl;
 	double **tmpPtr;
+
+
 	int counter = 0;
+
+	for (int j = 0; j < NY; ++j)
+	{
+		for (int i = 0; i < NX; ++i)
+		{
+			electricPotentialTemporary[j][i] = 0;
+		}
+	}
 
 	double rNormSq0 = 0;
 	rNormSq = 0;
 	applyOperator(r, electricPotentialTemporary, &Solver::accessFuncIncludingBC);
-	printArray(r);
 
 	for (int j = 0; j < NY; ++j)
 	{
@@ -408,21 +449,48 @@ void Solver::updateElectricPotential(const double &absError)
 	}
 	rNormSq0 = rNormSq;
 
-	while (counter <= NX * NY && rNormSq > absError * absError * rNormSq0)
+	while (counter <= NX * NY)//&& rNormSq > absError * absError * rNormSq0
 	{
 		applyOperator(q, d, &Solver::accessFuncNotIncludingBC);
 
 		alpha = rNormSq / scalarProduct(d, q);
-		rNormSqPrev = rNormSq;
-		rNormSq = 0;
 
 		for (int j = 0; j < NY; ++j)
 		{
 			for (int i = 0; i < NX; ++i)
 			{
 				electricPotential[j][i] = electricPotentialTemporary[j][i] + alpha * d[j][i];
-				r[j][i] = r[j][i] - alpha * q[j][i];
-				rNormSq += r[j][i] * r[j][i];
+			}
+		}
+
+		tmpPtr = electricPotentialTemporary;
+		electricPotentialTemporary = electricPotential;
+		electricPotential = tmpPtr;
+
+		rNormSqPrev = rNormSq;
+		rNormSq = 0;
+
+		if (counter % 50 == 0)
+		{
+			applyOperator(r, electricPotentialTemporary, &Solver::accessFuncIncludingBC);
+			for (int j = 0; j < NY; ++j)
+			{
+				for (int i = 0; i < NX; ++i)
+				{
+					r[j][i] *= -1;
+					rNormSq += r[j][i] * r[j][i];
+				}
+			}
+		}
+		else
+		{
+			for (int j = 0; j < NY; ++j)
+			{
+				for (int i = 0; i < NX; ++i)
+				{
+					r[j][i] = r[j][i] - alpha * q[j][i];
+					rNormSq += r[j][i] * r[j][i];
+				}
 			}
 		}
 
@@ -436,24 +504,50 @@ void Solver::updateElectricPotential(const double &absError)
 			}
 		}
 
-
-		tmpPtr = electricPotentialTemporary;
-		electricPotentialTemporary = electricPotential;
-		electricPotential = tmpPtr;
+		std::cout << counter << "\t" << rNormSq << std::endl;
 
 		++counter;
 	}
-}
-
-void Solver::updateElectricField()
-{
 //	for (int j = 0; j < NY; ++j)
 //	{
 //		for (int i = 0; i < NX; ++i)
 //		{
-//			electricField[j][i] = {(epf(j, i + 1) + epf(j, i - 1)) / 2 / h, (epf(j + 1, i) + epf(j - 1, i)) / 2 / h};
+//			if (dendriteOrDomainContains(j, i))
+//			{ electricPotentialTemporary[j][i] = 0; }
 //		}
 //	}
+
+//		std::cout << rNormSq0 << std::endl;
+//		std::cout << rNormSq << std::endl;
+//		std::cout << counter << std::endl;
+//	if (counter >= NX * NY)
+//	{
+//		std::fstream file;
+//
+//		file.open("data.txt", std::ios::out);
+//		exportData(file);
+//		file.close();
+//
+//		file.open("EP.txt", std::ios::out);
+//		exportPotential(file);
+//		file.close();
+//		throw std::bad_alloc();
+//	}
+}
+
+
+void Solver::updateElectricField()
+{
+	for (int j = 0; j < NY; ++j)
+	{
+		for (int i = 0; i < NX; ++i)
+		{
+			electricField[j][i] = {(accessFuncIncludingBC(j, i + 1, electricPotentialTemporary) -
+									accessFuncIncludingBC(j, i, electricPotentialTemporary)) / h,
+								   (accessFuncIncludingBC(j - 1, i, electricPotentialTemporary) -
+									accessFuncIncludingBC(j, i, electricPotentialTemporary)) / h};
+		}
+	}
 }
 
 void Solver::exportPotential(std::fstream &file)
@@ -463,6 +557,18 @@ void Solver::exportPotential(std::fstream &file)
 		for (int i = 0; i < NX; ++i)
 		{
 			file << electricPotential[j][i] << "\t";
+		}
+		file << std::endl;
+	}
+}
+
+void Solver::exportR(std::fstream &file)
+{
+	for (int j = 0; j < NY; ++j)
+	{
+		for (int i = 0; i < NX; ++i)
+		{
+			file << r[j][i] << "\t";
 		}
 		file << std::endl;
 	}
@@ -493,10 +599,10 @@ void Solver::applyOperator(double **result, double **x,
 	{
 		for (int i = 0; i < NX; ++i)
 		{
-			if (bcf(j, i))
-			{
-				break;
-			}
+//			if (bcf(j, i))
+//			{
+//				break;
+//			}
 
 			result[j][i] = 0;
 
@@ -560,7 +666,7 @@ double Solver::accessFuncIncludingBC(const int &j, const int &i, double **x)
 {
 	if (j < 0)
 	{
-		return 2 * U;
+		return U;
 	}
 
 	if (!computationAreaContains(j, i))
@@ -587,8 +693,9 @@ double Solver::accessFuncNotIncludingBC(const int &j, const int &i, double **x)
 
 	if (!computationAreaContains(j, i))
 	{
-		vec2i rectified = rectifyJI(j, i);
-		return x[rectified[0]][rectified[1]];
+//		vec2i rectified = rectifyJI(j, i);
+//		return x[rectified[0]][rectified[1]];
+		return 0;
 	}
 
 

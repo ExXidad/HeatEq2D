@@ -99,6 +99,8 @@ public:
 
 	void exportField(std::fstream &file);
 
+	void exportR(std::fstream &file);
+
 	void printArray(double **arr);
 
 	void printArray(bool **arr);
