@@ -70,7 +70,9 @@ private:
 
 	bool computationAreaContains(const int &j, const int &i);
 
-	void applyOperator(double **result, double **x, double (Solver::*accessFunction)(const int &, const int &, double **x));
+	void applyOperatorB(double **result, double **x);
+
+	void applyOperatorNoB(double **result, double **x);
 
 	bool bcf(const int &j, const int &i);
 

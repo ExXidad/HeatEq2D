@@ -25,7 +25,7 @@ int main()
 //	domain.addDomainFunction(DF2);
 
 	Solver solver(boundingRect, domain, 0.1);
-	solver.randomSeed(0);
+	solver.randomSeed(0.2);
 	solver.solve(0, 0.5);
 
 	std::fstream file;

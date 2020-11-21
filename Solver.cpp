@@ -141,11 +141,11 @@ void Solver::solve(const double &fraction, const double &reactionProbability)
 		}
 	}
 
-	applyOperator(q, x1, &Solver::accessFuncNotIncludingBC);
+	applyOperatorNoB(q, x1);
 	std::cout << "x2^T*A*x1\t" << scalarProduct(x2, q) << std::endl;
 
 
-	applyOperator(q, x2, &Solver::accessFuncNotIncludingBC);
+	applyOperatorNoB(q, x2);
 	std::cout << "x1^T*A*x2\t" << scalarProduct(x1, q) << std::endl;
 
 
@@ -167,7 +167,7 @@ void Solver::solve(const double &fraction, const double &reactionProbability)
 	}
 
 	// Find initial EF
-	updateElectricPotential(pow(10, -4));
+	updateElectricPotential(pow(10, -10));
 	updateElectricField();
 
 	for (int i = 0; i < N; ++i)
@@ -434,9 +434,9 @@ void Solver::updateElectricPotential(const double &absError)
 		}
 	}
 
-	double rNormSq0 = 0;
+	double rNormSq0;
 	rNormSq = 0;
-	applyOperator(r, electricPotentialTemporary, &Solver::accessFuncIncludingBC);
+	applyOperatorB(r, electricPotentialTemporary);
 
 	for (int j = 0; j < NY; ++j)
 	{
@@ -449,9 +449,9 @@ void Solver::updateElectricPotential(const double &absError)
 	}
 	rNormSq0 = rNormSq;
 
-	while (counter <= NX * NY)//&& rNormSq > absError * absError * rNormSq0
+	while (counter <= NX * NY && rNormSq > absError * absError * rNormSq0)
 	{
-		applyOperator(q, d, &Solver::accessFuncNotIncludingBC);
+		applyOperatorNoB(q, d);
 
 		alpha = rNormSq / scalarProduct(d, q);
 
@@ -472,7 +472,7 @@ void Solver::updateElectricPotential(const double &absError)
 
 		if (counter % 50 == 0)
 		{
-			applyOperator(r, electricPotentialTemporary, &Solver::accessFuncIncludingBC);
+			applyOperatorB(r, electricPotentialTemporary);
 			for (int j = 0; j < NY; ++j)
 			{
 				for (int i = 0; i < NX; ++i)
@@ -503,8 +503,6 @@ void Solver::updateElectricPotential(const double &absError)
 				d[j][i] = r[j][i] + beta * d[j][i];
 			}
 		}
-
-		std::cout << counter << "\t" << rNormSq << std::endl;
 
 		++counter;
 	}
@@ -592,28 +590,76 @@ void Solver::exportField(std::fstream &file)
 }
 
 
-void Solver::applyOperator(double **result, double **x,
-						   double (Solver::*accessFunction)(const int &, const int &, double **))
+void Solver::applyOperatorB(double **result, double **x)
 {
 	for (int j = 0; j < NY; ++j)
 	{
 		for (int i = 0; i < NX; ++i)
 		{
-//			if (bcf(j, i))
-//			{
-//				break;
-//			}
-
 			result[j][i] = 0;
 
-			for (int k = -1; k <= 1; ++k)
-				for (int l = -1; l <= 1; ++l)
-					if (abs(k) xor abs(l))
+			if (!dendriteOrDomainContains(j, i))
+			{
+				for (int k = -1; k <= 1; k += 2)
+					for (int l = -1; l <= 1; l += 2)
 					{
 						int newJ = j + k, newI = i + l;
 
-						result[j][i] += (this->*accessFunction)(newJ, newI, x) - x[j][i];
+						if (newJ < 0)
+						{
+							result[j][i] += (U - x[j][i]) * 2;
+						}
+						else if (!computationAreaContains(newJ, newI))
+						{
+							result[j][i] += 0;
+						}
+						else if (dendriteOrDomainContains(newJ, newI))
+						{
+							result[j][i] += (0 - x[j][i]) * 2;
+						}
+						else
+						{
+							result[j][i] += x[newJ][newI] - x[j][i];
+						}
 					}
+			}
+		}
+	}
+}
+
+void Solver::applyOperatorNoB(double **result, double **x)
+{
+	for (int j = 0; j < NY; ++j)
+	{
+		for (int i = 0; i < NX; ++i)
+		{
+			result[j][i] = 0;
+
+			if (!dendriteOrDomainContains(j, i))
+			{
+				for (int k = -1; k <= 1; k += 2)
+					for (int l = -1; l <= 1; l += 2)
+					{
+						int newJ = j + k, newI = i + l;
+
+						if (newJ < 0)
+						{
+							result[j][i] += (0 - x[j][i]) * 2;
+						}
+						else if (!computationAreaContains(newJ, newI))
+						{
+							result[j][i] += 0;
+						}
+						else if (dendriteOrDomainContains(newJ, newI))
+						{
+							result[j][i] += (0 - x[j][i]) * 2;
+						}
+						else
+						{
+							result[j][i] += x[newJ][newI] - x[j][i];
+						}
+					}
+			}
 		}
 	}
 }
@@ -695,7 +741,6 @@ double Solver::accessFuncNotIncludingBC(const int &j, const int &i, double **x)
 	{
 //		vec2i rectified = rectifyJI(j, i);
 //		return x[rectified[0]][rectified[1]];
-		return 0;
 	}
 
 
