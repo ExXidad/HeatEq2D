@@ -18,15 +18,15 @@ bool DF2(const double &x, const double &y)
 
 int main()
 {
-	BoundingRect boundingRect(0, 10, 0, 10);
+	BoundingRect boundingRect(0, 10, 0, 5);
 
 	Domain domain;
 	domain.addDomainFunction(DF1);
 //	domain.addDomainFunction(DF2);
 
-	Solver solver(boundingRect, domain, 0.1);
+	Solver solver(boundingRect, domain, 0.01);
 	solver.randomSeed(0.2);
-	solver.solve(0, 0.5);
+	solver.solve(0.2, 0.5);
 
 	std::fstream file;
 	file.open("domain.txt", std::ios::out);
@@ -46,10 +46,6 @@ int main()
 	file.close();
 
 	file.open("EF.txt", std::ios::out);
-	solver.exportField(file);
-	file.close();
-
-	file.open("r.txt", std::ios::out);
 	solver.exportField(file);
 	file.close();
 	return 0;

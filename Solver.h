@@ -31,9 +31,11 @@ private:
 	double **electricPotential;
 	double **electricPotentialTemporary;
 	double **r, **d, **q;
-	double alpha, beta, rNormSqPrev, rNormSq;
+	double alpha, beta, delOld, delNew, del0;
+	bool firstEPUpdRun = true;
 
-	vec2d **electricField;
+	double **electricFieldI;
+	double **electricFieldJ;
 
 	Domain *domain;
 	BoundingRect *boundingRect;
@@ -58,8 +60,6 @@ private:
 
 	int neighbours4(const int &j, const int &i);
 
-	vec2i rectifyJI(const int &j, const int &i);
-
 	vec2i randomShift(const int &j, const int &i);
 
 	void updateElectricPotential(const double &absError);
@@ -73,12 +73,6 @@ private:
 	void applyOperatorB(double **result, double **x);
 
 	void applyOperatorNoB(double **result, double **x);
-
-	bool bcf(const int &j, const int &i);
-
-	double accessFuncIncludingBC(const int &j, const int &i, double **x);
-
-	double accessFuncNotIncludingBC(const int &j, const int &i, double **x);
 
 public:
 	Solver(BoundingRect &boundingRect, Domain &domain, const double &h);

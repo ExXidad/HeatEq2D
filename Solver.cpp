@@ -46,7 +46,6 @@ Solver::Solver(BoundingRect &boundingRect, Domain &domain, const double &h)
 		for (int i = 0; i < NX; ++i)
 		{
 			electricPotentialTemporary[j][i] = U * (1 - static_cast<double>(j) / NY);
-			electricPotentialTemporary[j][i] = accessFuncIncludingBC(j, i, electricPotentialTemporary);
 		}
 	}
 
@@ -62,9 +61,13 @@ Solver::Solver(BoundingRect &boundingRect, Domain &domain, const double &h)
 	for (int i = 0; i < NY; ++i)
 		q[i] = new double[NX];
 
-	electricField = new vec2d *[NY];
+	electricFieldI = new double *[NY];
 	for (int i = 0; i < NY; ++i)
-		electricField[i] = new vec2d[NX];
+		electricFieldI[i] = new double[NX];
+
+	electricFieldJ = new double *[NY];
+	for (int i = 0; i < NY; ++i)
+		electricFieldJ[i] = new double[NX];
 
 
 	gen = std::mt19937(time(nullptr));
@@ -85,8 +88,12 @@ Solver::~Solver()
 	delete[] dendrite;
 
 	for (int j = 0; j < NY; ++j)
-		delete[] electricField[j];
-	delete[] electricField;
+		delete[] electricFieldJ[j];
+	delete[] electricFieldJ;
+
+	for (int j = 0; j < NY; ++j)
+		delete[] electricFieldI[j];
+	delete[] electricFieldI;
 
 	for (int j = 0; j < NY; ++j)
 		delete[] r[j];
@@ -122,41 +129,6 @@ void Solver::addNucleus(const int &j, const int &i)
 
 void Solver::solve(const double &fraction, const double &reactionProbability)
 {
-	double **x1 = new double *[NY];
-	for (int j = 0; j < NY; ++j)
-	{
-		x1[j] = new double[NX];
-		for (int i = 0; i < NX; ++i)
-		{
-			x1[j][i] = urd(gen);
-		}
-	}
-	double **x2 = new double *[NY];
-	for (int j = 0; j < NY; ++j)
-	{
-		x2[j] = new double[NX];
-		for (int i = 0; i < NX; ++i)
-		{
-			x2[j][i] = urd(gen);
-		}
-	}
-
-	applyOperatorNoB(q, x1);
-	std::cout << "x2^T*A*x1\t" << scalarProduct(x2, q) << std::endl;
-
-
-	applyOperatorNoB(q, x2);
-	std::cout << "x1^T*A*x2\t" << scalarProduct(x1, q) << std::endl;
-
-
-	for (int j = 0; j < NY; ++j)
-		delete[] x1[j];
-	delete[] x1;
-
-	for (int j = 0; j < NY; ++j)
-		delete[] x2[j];
-	delete[] x2;
-
 	int N = static_cast
 			<int>(fraction * NX * NY);
 
@@ -167,12 +139,12 @@ void Solver::solve(const double &fraction, const double &reactionProbability)
 	}
 
 	// Find initial EF
-	updateElectricPotential(pow(10, -10));
+	updateElectricPotential(pow(10, -8));
 	updateElectricField();
 
 	for (int i = 0; i < N; ++i)
 	{
-		vec2i particle;
+		vec2i particle(2);
 		if (seedParticles.empty())
 		{
 			// If no seed particles remained - generate random one
@@ -191,7 +163,7 @@ void Solver::solve(const double &fraction, const double &reactionProbability)
 			// If doesn't collide anything - step
 			if (!collidesAnything(particle[0], particle[1]))
 			{
-				particle += shift;
+				particle = {particle[0] + shift[0], particle[1] + shift[1]};
 				if (!computationAreaContains(particle[0], particle[1]))
 				{
 					particle = {0, randI(gen)};
@@ -248,15 +220,20 @@ void Solver::solve(const double &fraction, const double &reactionProbability)
 					std::cout << "Progress: " << 1. * i / N * 100 << "%" << std::endl;
 
 					// Update EF
-					updateElectricPotential(0.01);
+					updateElectricPotential(pow(10, -8));
 					updateElectricField();
+
+					std::fstream file;
+					file.open(std::to_string(i), std::ios::out);
+					exportDendrite(file);
+					file.close();
 				}
 				break;
 			}
 			else
 			{
 				vec2i secondaryShift = randomShift(particle[0], particle[1]);
-				vec2i tmpParticle = particle + secondaryShift;
+				vec2i tmpParticle = {particle[0] + secondaryShift[0],particle[1] + secondaryShift[1]};
 				if (!computationAreaContains(tmpParticle[0], tmpParticle[1]))
 				{
 					particle = {0, randI(gen)};
@@ -325,26 +302,26 @@ void Solver::exportData(std::fstream &file)
 
 vec2i Solver::randomShift(const int &j, const int &i)
 {
-	vec2d E = electricField[j][i];
-	double coeff = h * Z * mu / (D + h * Z * mu * (abs(E[0]) + abs(E[1])));
-	double Px = coeff * abs(E[0]);
-	double Py = coeff * abs(E[1]);
-	double basicProb = (1 - Px - Py) / 4;
+	double Ei = electricFieldI[j][i], Ej = electricFieldJ[j][i];
+	double coeff = h * Z * mu / (D + h * Z * mu * (abs(Ei) + abs(Ej)));
+	double Pi = coeff * abs(Ei);
+	double Pj = coeff * abs(Ej);
+	double basicProb = (1 - Pi - Pj) / 4;
 
 	std::vector<double> transitionProbabilities(4, basicProb);
-	if (E[0] >= 0)
+	if (Ei >= 0)
 	{
-		transitionProbabilities[0] += Px;
+		transitionProbabilities[0] += Pi;
 	}
 	else
-	{ transitionProbabilities[2] += Px; }
+	{ transitionProbabilities[2] += Pi; }
 
-	if (E[1] >= 0)
+	if (Ej >= 0)
 	{
-		transitionProbabilities[1] += Py;
+		transitionProbabilities[3] += Pj;
 	}
 	else
-	{ transitionProbabilities[3] += Py; }
+	{ transitionProbabilities[1] += Pj; }
 
 
 	int dI = 0, dJ = 0;
@@ -390,21 +367,6 @@ int Solver::neighbours4(const int &j, const int &i)
 	return neighbours;
 }
 
-vec2i Solver::rectifyJI(const int &j, const int &i)
-{
-	int newJ = j, newI = i;
-	if (NY <= j)
-	{ newJ = NY - 1; }
-	else if (j < 0)
-	{ newJ = 0; }
-
-	if (NX <= i)
-	{ newI = NX - 1; }
-	else if (i < 0)
-	{ newI = 0; }
-	return {newJ, newI};
-}
-
 void Solver::randomSeed(const double &fraction)
 {
 	int N = static_cast<int>(fraction * NX * NY);
@@ -423,19 +385,9 @@ void Solver::updateElectricPotential(const double &absError)
 	std::cout << "Solving Laplace eq. over computation area" << std::endl;
 	double **tmpPtr;
 
-
 	int counter = 0;
 
-	for (int j = 0; j < NY; ++j)
-	{
-		for (int i = 0; i < NX; ++i)
-		{
-			electricPotentialTemporary[j][i] = 0;
-		}
-	}
-
-	double rNormSq0;
-	rNormSq = 0;
+	delNew = 0;
 	applyOperatorB(r, electricPotentialTemporary);
 
 	for (int j = 0; j < NY; ++j)
@@ -443,17 +395,23 @@ void Solver::updateElectricPotential(const double &absError)
 		for (int i = 0; i < NX; ++i)
 		{
 			r[j][i] *= -1;
-			d[j][i] = r[j][i];
-			rNormSq += r[j][i] * r[j][i];
+			d[j][i] = r[j][i] / 4;
+			delNew += d[j][i] * r[j][i];
 		}
 	}
-	rNormSq0 = rNormSq;
+	if (firstEPUpdRun)
+	{
+		del0 = delNew;
+		firstEPUpdRun = false;
+	}
+//	else
+//	{ del0 = std::max<double>(del0, delNew); }
 
-	while (counter <= NX * NY && rNormSq > absError * absError * rNormSq0)
+	while (counter <= NX * NY && delNew > absError * absError * del0)
 	{
 		applyOperatorNoB(q, d);
 
-		alpha = rNormSq / scalarProduct(d, q);
+		alpha = delNew / scalarProduct(d, q);
 
 		for (int j = 0; j < NY; ++j)
 		{
@@ -467,8 +425,8 @@ void Solver::updateElectricPotential(const double &absError)
 		electricPotentialTemporary = electricPotential;
 		electricPotential = tmpPtr;
 
-		rNormSqPrev = rNormSq;
-		rNormSq = 0;
+		delOld = delNew;
+		delNew = 0;
 
 		if (counter % 50 == 0)
 		{
@@ -478,7 +436,7 @@ void Solver::updateElectricPotential(const double &absError)
 				for (int i = 0; i < NX; ++i)
 				{
 					r[j][i] *= -1;
-					rNormSq += r[j][i] * r[j][i];
+					delNew += r[j][i] * r[j][i] / 4;
 				}
 			}
 		}
@@ -489,23 +447,30 @@ void Solver::updateElectricPotential(const double &absError)
 				for (int i = 0; i < NX; ++i)
 				{
 					r[j][i] = r[j][i] - alpha * q[j][i];
-					rNormSq += r[j][i] * r[j][i];
+					delNew += r[j][i] * r[j][i] / 4;
 				}
 			}
 		}
 
-		beta = rNormSq / rNormSqPrev;
+		beta = delNew / delOld;
 
 		for (int j = 0; j < NY; ++j)
 		{
 			for (int i = 0; i < NX; ++i)
 			{
-				d[j][i] = r[j][i] + beta * d[j][i];
+				d[j][i] = r[j][i] / 4 + beta * d[j][i];
 			}
 		}
 
 		++counter;
 	}
+
+	if (counter >= NX * NY)
+	{
+		std::cout << "Didn't converge within: " << NX * NY << " iterations" << std::endl;
+	}
+	else
+	{ std::cout << "Converged within: " << counter << " iterations" << std::endl; }
 //	for (int j = 0; j < NY; ++j)
 //	{
 //		for (int i = 0; i < NX; ++i)
@@ -515,8 +480,8 @@ void Solver::updateElectricPotential(const double &absError)
 //		}
 //	}
 
-//		std::cout << rNormSq0 << std::endl;
-//		std::cout << rNormSq << std::endl;
+//		std::cout << del0 << std::endl;
+//		std::cout << delNew << std::endl;
 //		std::cout << counter << std::endl;
 //	if (counter >= NX * NY)
 //	{
@@ -540,13 +505,82 @@ void Solver::updateElectricField()
 	{
 		for (int i = 0; i < NX; ++i)
 		{
-			electricField[j][i] = {(accessFuncIncludingBC(j, i + 1, electricPotentialTemporary) -
-									accessFuncIncludingBC(j, i, electricPotentialTemporary)) / h,
-								   (accessFuncIncludingBC(j - 1, i, electricPotentialTemporary) -
-									accessFuncIncludingBC(j, i, electricPotentialTemporary)) / h};
+			electricFieldJ[j][i] = 0;
+			electricFieldI[j][i] = 0;
+			if (!dendriteOrDomainContains(j, i))
+			{
+				double hx = 0, hy = 0;
+
+				if (j - 1 < 0)
+				{
+					electricFieldJ[j][i] -= U;
+					hy += 1. / 2;
+				}
+				else if (dendriteOrDomainContains(j - 1, i))
+				{
+					electricFieldJ[j][i] -= 0;
+					hy += 1. / 2;
+				}
+				else
+				{
+					electricFieldJ[j][i] -= electricPotentialTemporary[j - 1][i];
+					hy += 1;
+				}
+
+
+				if (dendriteOrDomainContains(j + 1, i))
+				{
+					electricFieldJ[j][i] += 0;
+					hy += 1. / 2;
+				}
+				else
+				{
+					electricFieldJ[j][i] += electricPotentialTemporary[j + 1][i];
+					hy += 1;
+				}
+
+
+				if (i + 1 >= NX)
+				{
+					electricFieldI[j][i] += electricPotentialTemporary[j][i];
+					hx += 1;
+				}
+				else if (dendriteOrDomainContains(j, i + 1))
+				{
+					electricFieldI[j][i] += 0;
+					hx += 1. / 2;
+				}
+				else
+				{
+					electricFieldI[j][i] += electricPotentialTemporary[j][i + 1];
+					hx += 1;
+				}
+
+
+				if (i - 1 < 0)
+				{
+					electricFieldI[j][i] -= electricPotentialTemporary[j][i];
+					hx += 1. / 2;
+				}
+				else if (dendriteOrDomainContains(j, i - 1))
+				{
+					electricFieldI[j][i] -= 0;
+					hx += 1. / 2;
+				}
+				else
+				{
+					electricFieldI[j][i] -= electricPotentialTemporary[j][i - 1];
+					hx += 1;
+				}
+
+
+				electricFieldI[j][i] = -electricFieldI[j][i] / hx / h;
+				electricFieldJ[j][i] = -electricFieldJ[j][i] / hy / h;
+			}
 		}
 	}
 }
+
 
 void Solver::exportPotential(std::fstream &file)
 {
@@ -554,9 +588,8 @@ void Solver::exportPotential(std::fstream &file)
 	{
 		for (int i = 0; i < NX; ++i)
 		{
-			file << electricPotential[j][i] << "\t";
+			file << iToX(i) << "\t" << jToY(j) << "\t" << electricPotential[j][i] << "\t" << std::endl;;
 		}
-		file << std::endl;
 	}
 }
 
@@ -583,9 +616,9 @@ void Solver::exportField(std::fstream &file)
 	{
 		for (int i = 0; i < NX; ++i)
 		{
-			file << electricField[j][i][0] << "\t" << electricField[j][i][1] << "\t";
+			file << iToX(i) << "\t" << jToY(j) << "\t" << electricFieldI[j][i] << "\t" << electricFieldJ[j][i]
+				 << std::endl;
 		}
-		file << std::endl;
 	}
 }
 
@@ -701,53 +734,4 @@ void Solver::printArray(bool **arr)
 		std::cout << std::endl;
 	}
 	std::cout << std::endl;
-}
-
-bool Solver::bcf(const int &j, const int &i)
-{
-	return (!computationAreaContains(j, i) || dendriteOrDomainContains(j, i) || j < 0);
-}
-
-double Solver::accessFuncIncludingBC(const int &j, const int &i, double **x)
-{
-	if (j < 0)
-	{
-		return U;
-	}
-
-	if (!computationAreaContains(j, i))
-	{
-		vec2i rectified = rectifyJI(j, i);
-		return x[rectified[0]][rectified[1]];
-	}
-
-
-	if (dendriteOrDomainContains(j, i))
-	{
-		return 0;
-	}
-
-	return x[j][i];
-}
-
-double Solver::accessFuncNotIncludingBC(const int &j, const int &i, double **x)
-{
-	if (j < 0)
-	{
-		return 0;
-	}
-
-	if (!computationAreaContains(j, i))
-	{
-//		vec2i rectified = rectifyJI(j, i);
-//		return x[rectified[0]][rectified[1]];
-	}
-
-
-	if (dendriteOrDomainContains(j, i))
-	{
-		return 0;
-	}
-
-	return x[j][i];
 }
