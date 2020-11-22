@@ -1,12 +1,8 @@
-//
-// Created by mi on 05.09.2020.
-//
-
 #ifndef PENDULUM_MYTYPEDEFS_H
 #define PENDULUM_MYTYPEDEFS_H
 
 #include <vector>
-#include <Eigen/Geometry>
+//#include <Eigen/Geometry>
 #include <iostream>
 
 namespace myTypedefs

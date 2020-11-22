@@ -1,7 +1,3 @@
-//
-// Created by xidad on 26.10.2020.
-//
-
 #include "BoundingRect.h"
 
 BoundingRect::BoundingRect(const double &xmin, const double &xmax, const double &ymin, const double &ymax)

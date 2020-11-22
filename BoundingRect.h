@@ -1,7 +1,3 @@
-//
-// Created by xidad on 26.10.2020.
-//
-
 #ifndef DENDRIVEV3_BOUNDINGRECT_H
 #define DENDRIVEV3_BOUNDINGRECT_H
 

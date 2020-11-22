@@ -8,7 +8,7 @@
 //DF - domain function
 bool DF1(const double &x, const double &y)
 {
-	return y <= 0.6;
+	return y <= 0.02;
 }
 
 bool DF2(const double &x, const double &y)

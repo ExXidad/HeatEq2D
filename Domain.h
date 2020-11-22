@@ -1,7 +1,3 @@
-//
-// Created by xidad on 26.10.2020.
-//
-
 #ifndef DENDRIVEV3_DOMAIN_H
 #define DENDRIVEV3_DOMAIN_H
 

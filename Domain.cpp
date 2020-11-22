@@ -1,7 +1,3 @@
-//
-// Created by xidad on 26.10.2020.
-//
-
 #include "Domain.h"
 
 void Domain::addDomainFunction(bool (&domainFunction)(const double &, const double &))

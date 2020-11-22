@@ -233,7 +233,7 @@ void Solver::solve(const double &fraction, const double &reactionProbability)
 			else
 			{
 				vec2i secondaryShift = randomShift(particle[0], particle[1]);
-				vec2i tmpParticle = {particle[0] + secondaryShift[0],particle[1] + secondaryShift[1]};
+				vec2i tmpParticle = {particle[0] + secondaryShift[0], particle[1] + secondaryShift[1]};
 				if (!computationAreaContains(tmpParticle[0], tmpParticle[1]))
 				{
 					particle = {0, randI(gen)};
