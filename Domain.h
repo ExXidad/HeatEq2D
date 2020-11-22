@@ -3,13 +3,25 @@
 
 #include <vector>
 
+enum DFInteractionType
+{
+	UNION, INTERSECTION, EXCLUSION
+};
+
 class Domain
 {
 private:
 	std::vector<bool (*)(const double &, const double &)> domainFunctions;
+	DFInteractionType type = UNION;
+
+	bool (Domain::*containsFunction)(const double &, const double &) = &Domain::intersectionContains;
 
 public:
 	Domain();
+
+	void setDFInteractionType(const DFInteractionType &type);
+
+	bool contains(const double &x, const double &y);
 
 	void addDomainFunction(bool(&domainFunction)(const double &, const double &));
 
