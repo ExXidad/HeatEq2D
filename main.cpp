@@ -18,16 +18,16 @@ bool DF2(const double &x, const double &y)
 
 int main()
 {
-	BoundingRect boundingRect(0, 1, 0, 1);
+	BoundingRect boundingRect(0, 10, 0, 10);
 
 	Domain domain;
 	domain.addDomainFunction(DF1);
 //	domain.addDomainFunction(DF2);
 
-	Solver solver(boundingRect, domain, 0.05);
-	solver.randomSeed(0.3);
+	Solver solver(boundingRect, domain, 0.017);
+	solver.randomSeed(0);
 //	solver.addNucleus(200,200);
-	solver.solve(0.3, 0.5);
+	solver.solve(0.4, 1);
 
 	std::fstream file;
 	file.open("domain.txt", std::ios::out);

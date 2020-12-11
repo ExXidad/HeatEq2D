@@ -20,7 +20,7 @@ private:
 	int NX, NY;
 
 	double U = 10;
-	double mu = 0.1, D = 1, Z = 1;
+	double mu = 0.1, D = 0, Z = 1;
 
 	bool **domainMesh;
 	bool **dendrite;
@@ -37,6 +37,7 @@ private:
 	BoundingRect *boundingRect;
 
 	std::vector<vec2i> seedParticles{};
+	vec2i shift, secondaryShift;
 
 private:
 	std::mt19937 gen;
@@ -56,7 +57,7 @@ private:
 
 	int neighbours4(const int &j, const int &i);
 
-	vec2i randomShift(const int &j, const int &i);
+	void randomShift(vec2i &shiftVar, const int &j, const int &i);
 
 	void updateElectricPotential(const double &absError);
 

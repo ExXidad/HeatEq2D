@@ -155,12 +155,20 @@ void Solver::solve(const double &fraction, const double &reactionProbability)
 		else
 		{
 			// Otherwise pick one
-			particle = seedParticles[seedParticles.size() - 1];
-			seedParticles.erase(seedParticles.end());
+			do
+			{
+				particle = seedParticles[seedParticles.size() - 1];
+				seedParticles.erase(seedParticles.end());
+				if (seedParticles.empty())
+				{
+					break;
+				}
+			} while (dendriteOrDomainContains(particle[0], particle[1]));
+
 		}
 		while (true)
 		{
-			vec2i shift = randomShift(particle[0], particle[1]);
+			randomShift(shift, particle[0], particle[1]);
 
 			// If doesn't collide anything - step
 			if (!collidesAnything(particle[0], particle[1]))
@@ -180,7 +188,7 @@ void Solver::solve(const double &fraction, const double &reactionProbability)
 				// Relaxation process
 				if (dendrite[particle[0] + 1][particle[1]])
 				{
-					int n1 = -1, n2 = -1;
+					int n0 = neighbours4(particle[0], particle[1]), n1 = -1, n2 = -1;
 
 					if (computationAreaContains(particle[0], particle[1] + 1) &&
 						!dendrite[particle[0]][particle[1] + 1])
@@ -202,7 +210,7 @@ void Solver::solve(const double &fraction, const double &reactionProbability)
 						}
 					}
 
-					if (n1 == -1 && n2 == -1)
+					if (n0 >= n1 && n0 >= n2)
 					{ dendrite[particle[0]][particle[1]] = true; }
 					else if (n2 > n1)
 					{ dendrite[particle[0] + 1][particle[1] - 1] = true; }
@@ -222,22 +230,22 @@ void Solver::solve(const double &fraction, const double &reactionProbability)
 					std::cout << std::endl << "Progress: " << 1. * i / N * 100 << "%" << std::endl;
 
 					// Update EF
-					updateElectricPotential(pow(10, -10));
+					updateElectricPotential(pow(10, -8));
 					updateElectricField();
 
 
 //					// Export dendrite
-//					std::fstream file;
-//					file.open(std::to_string(i), std::ios::out);
-//					exportDendrite(file);
-//					file.close();
+					std::fstream file;
+					file.open(std::to_string(i), std::ios::out);
+					exportDendrite(file);
+					file.close();
 				}
 				break;
 			}
 				// If reaction failed continue moving
 			else
 			{
-				vec2i secondaryShift = randomShift(particle[0], particle[1]);
+				randomShift(secondaryShift, particle[1], particle[0]);
 				vec2i tmpParticle = {particle[0] + secondaryShift[0], particle[1] + secondaryShift[1]};
 				// Delete particle if it left computation area
 				if (!computationAreaContains(tmpParticle[0], tmpParticle[1]))
@@ -307,12 +315,12 @@ void Solver::exportData(std::fstream &file)
 	}
 }
 
-vec2i Solver::randomShift(const int &j, const int &i)
+void Solver::randomShift(vec2i &shiftVar, const int &j, const int &i)
 {
 	double Ei = electricFieldI[j][i], Ej = electricFieldJ[j][i];
-	double coeff = h * Z * mu / (D + h * Z * mu * (abs(Ei) + abs(Ej)));
-	double Pi = coeff * abs(Ei);
-	double Pj = coeff * abs(Ej);
+	double coeff = h * Z * mu / (D + h * Z * mu * (std::abs(Ei) + std::abs(Ej)));
+	double Pi = coeff * std::abs(Ei);
+	double Pj = coeff * std::abs(Ej);
 	double basicProb = (1 - Pi - Pj) / 4;
 
 	std::vector<double> transitionProbabilities(4, basicProb);
@@ -352,7 +360,7 @@ vec2i Solver::randomShift(const int &j, const int &i)
 			randNumber -= transitionProbabilities[k];
 		}
 	}
-	return {dJ, dI};
+	shiftVar = {dJ, dI};
 }
 
 int Solver::neighbours4(const int &j, const int &i)
@@ -400,10 +408,10 @@ void Solver::updateElectricPotential(const double &absError)
 	{
 		for (int i = 0; i < NX; ++i)
 		{
-			if (dendriteOrDomainContains(j, i))
-			{
-				electricPotentialTemporary[j][i] = 0;
-			}
+//			if (dendriteOrDomainContains(j, i))
+//			{
+			electricPotentialTemporary[j][i] = 0;
+//			}
 		}
 	}
 //#pragma omp barrier
