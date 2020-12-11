@@ -52,7 +52,7 @@ private:
 
 	bool collidesAnything(const int &j, const int &i);
 
-	bool dendriteOrDomainContains(const int &j, const int &i);
+	__attribute__((always_inline)) bool dendriteOrDomainContains(const int &j, const int &i);
 
 	int neighbours4(const int &j, const int &i);
 
@@ -64,7 +64,7 @@ private:
 
 	double scalarProduct(double **x, double **y);
 
-	bool computationAreaContains(const int &j, const int &i);
+	__attribute__((always_inline)) bool computationAreaContains(const int &j, const int &i);
 
 	void applyOperatorB(double **result, double **x);
 

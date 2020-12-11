@@ -1,3 +1,5 @@
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "openmp-use-default-none"
 //
 // Created by xidad on 26.10.2020.
 //
@@ -139,7 +141,7 @@ void Solver::solve(const double &fraction, const double &reactionProbability)
 	}
 
 	// Find initial EF
-	updateElectricPotential(pow(10, -8));
+	updateElectricPotential(pow(10, -10));
 	updateElectricField();
 
 	for (int i = 0; i < N; ++i)
@@ -217,12 +219,13 @@ void Solver::solve(const double &fraction, const double &reactionProbability)
 				// Progress output
 				if (i % std::max(1, static_cast<int>(1. * N / 100)) == 0)
 				{
-					std::cout << "Progress: " << 1. * i / N * 100 << "%" << std::endl;
+					std::cout << std::endl << "Progress: " << 1. * i / N * 100 << "%" << std::endl;
 
 					// Update EF
-					updateElectricPotential(pow(10, -8));
+					updateElectricPotential(pow(10, -10));
 					updateElectricField();
 
+					// Export dendrite
 					std::fstream file;
 					file.open(std::to_string(i), std::ios::out);
 					exportDendrite(file);
@@ -230,14 +233,17 @@ void Solver::solve(const double &fraction, const double &reactionProbability)
 				}
 				break;
 			}
+				// If reaction failed continue moving
 			else
 			{
 				vec2i secondaryShift = randomShift(particle[0], particle[1]);
 				vec2i tmpParticle = {particle[0] + secondaryShift[0], particle[1] + secondaryShift[1]};
+				// Delete particle if it left computation area
 				if (!computationAreaContains(tmpParticle[0], tmpParticle[1]))
 				{
 					particle = {0, randI(gen)};
 				}
+					// Make a step
 				else if (!dendriteOrDomainContains(tmpParticle[0], tmpParticle[1]))
 				{
 					particle = tmpParticle;
@@ -351,19 +357,18 @@ vec2i Solver::randomShift(const int &j, const int &i)
 int Solver::neighbours4(const int &j, const int &i)
 {
 	int neighbours = 0;
-	for (int k = -1; k <= 1; ++k)
-		for (int l = -1; l <= 1; ++l)
-			if (abs(k) xor abs(l))
-			{
-				int newJ = j + k, newI = i + l;
+	for (int k = -1; k <= 1; k += 2)
+		for (int l = -1; l <= 1; l += 2)
+		{
+			int newJ = j + k, newI = i + l;
 
-				//check whether (j, i) touches domain or dendrite
-				if (computationAreaContains(newJ, newI) &&
-					(dendrite[newJ][newI] || domainMesh[newJ][newI]))
-				{
-					++neighbours;
-				}
+			//check whether (j, i) touches domain or dendrite
+			if (computationAreaContains(newJ, newI) &&
+				(dendrite[newJ][newI] || domainMesh[newJ][newI]))
+			{
+				++neighbours;
 			}
+		}
 	return neighbours;
 }
 
@@ -386,10 +391,24 @@ void Solver::updateElectricPotential(const double &absError)
 	double **tmpPtr;
 
 	int counter = 0;
+//#pragma omp parallel for schedule(static)
+	for (int j = 0; j < NY; ++j)
+	{
+		for (int i = 0; i < NX; ++i)
+		{
+			electricPotentialTemporary[j][i] = 0;
+//			if (dendriteOrDomainContains(j, i))
+//			{
+//
+//			}
+		}
+	}
+//#pragma omp barrier
 
 	delNew = 0;
 	applyOperatorB(r, electricPotentialTemporary);
 
+//#pragma omp parallel for schedule(static)
 	for (int j = 0; j < NY; ++j)
 	{
 		for (int i = 0; i < NX; ++i)
@@ -399,11 +418,11 @@ void Solver::updateElectricPotential(const double &absError)
 			delNew += d[j][i] * r[j][i];
 		}
 	}
-	if (firstEPUpdRun)
-	{
-		del0 = delNew;
-		firstEPUpdRun = false;
-	}
+
+	del0 = delNew;
+//#pragma omp barrier
+
+
 //	else
 //	{ del0 = std::max<double>(del0, delNew); }
 
@@ -413,6 +432,7 @@ void Solver::updateElectricPotential(const double &absError)
 
 		alpha = delNew / scalarProduct(d, q);
 
+//#pragma omp parallel for schedule(static)
 		for (int j = 0; j < NY; ++j)
 		{
 			for (int i = 0; i < NX; ++i)
@@ -420,6 +440,7 @@ void Solver::updateElectricPotential(const double &absError)
 				electricPotential[j][i] = electricPotentialTemporary[j][i] + alpha * d[j][i];
 			}
 		}
+//#pragma omp barrier
 
 		tmpPtr = electricPotentialTemporary;
 		electricPotentialTemporary = electricPotential;
@@ -431,6 +452,7 @@ void Solver::updateElectricPotential(const double &absError)
 		if (counter % 50 == 0)
 		{
 			applyOperatorB(r, electricPotentialTemporary);
+//#pragma omp parallel for schedule(static)
 			for (int j = 0; j < NY; ++j)
 			{
 				for (int i = 0; i < NX; ++i)
@@ -439,9 +461,11 @@ void Solver::updateElectricPotential(const double &absError)
 					delNew += r[j][i] * r[j][i] / 4;
 				}
 			}
+//#pragma omp barrier
 		}
 		else
 		{
+//#pragma omp parallel for schedule(static)
 			for (int j = 0; j < NY; ++j)
 			{
 				for (int i = 0; i < NX; ++i)
@@ -450,10 +474,12 @@ void Solver::updateElectricPotential(const double &absError)
 					delNew += r[j][i] * r[j][i] / 4;
 				}
 			}
+//#pragma omp barrier
 		}
 
 		beta = delNew / delOld;
 
+//#pragma omp parallel for schedule(static)
 		for (int j = 0; j < NY; ++j)
 		{
 			for (int i = 0; i < NX; ++i)
@@ -461,8 +487,14 @@ void Solver::updateElectricPotential(const double &absError)
 				d[j][i] = r[j][i] / 4 + beta * d[j][i];
 			}
 		}
+//#pragma omp barrier
 
 		++counter;
+	}
+	if (firstEPUpdRun)
+	{
+		del0 = delNew;
+		firstEPUpdRun = false;
 	}
 
 	if (counter >= NX * NY)
@@ -471,6 +503,12 @@ void Solver::updateElectricPotential(const double &absError)
 	}
 	else
 	{ std::cout << "Converged within: " << counter << " iterations" << std::endl; }
+
+	std::fstream file;
+	file.open("EP.txt", std::ios::out);
+	exportPotential(file);
+	file.close();
+
 //	for (int j = 0; j < NY; ++j)
 //	{
 //		for (int i = 0; i < NX; ++i)
@@ -479,7 +517,10 @@ void Solver::updateElectricPotential(const double &absError)
 //			{ electricPotentialTemporary[j][i] = 0; }
 //		}
 //	}
-
+//	std::fstream file;
+	file.open("r", std::ios::out);
+	exportR(file);
+	file.close();
 //		std::cout << del0 << std::endl;
 //		std::cout << delNew << std::endl;
 //		std::cout << counter << std::endl;
@@ -625,6 +666,7 @@ void Solver::exportField(std::fstream &file)
 
 void Solver::applyOperatorB(double **result, double **x)
 {
+//#pragma omp parallel for schedule(static)
 	for (int j = 0; j < NY; ++j)
 	{
 		for (int i = 0; i < NX; ++i)
@@ -662,6 +704,7 @@ void Solver::applyOperatorB(double **result, double **x)
 
 void Solver::applyOperatorNoB(double **result, double **x)
 {
+//#pragma omp parallel for schedule(static)
 	for (int j = 0; j < NY; ++j)
 	{
 		for (int i = 0; i < NX; ++i)
@@ -735,3 +778,5 @@ void Solver::printArray(bool **arr)
 	}
 	std::cout << std::endl;
 }
+
+//#pragma clang diagnostic pop
