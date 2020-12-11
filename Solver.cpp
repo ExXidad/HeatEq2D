@@ -361,7 +361,7 @@ int Solver::neighbours4(const int &j, const int &i)
 	for (int k = -1; k <= 1; ++k)
 		for (int l = -1; l <= 1; ++l)
 		{
-			if (!dendriteOrDomainContains(j, i))
+			if (abs(k) xor abs(l))
 			{
 				int newJ = j + k, newI = i + l;
 
