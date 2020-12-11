@@ -225,11 +225,12 @@ void Solver::solve(const double &fraction, const double &reactionProbability)
 					updateElectricPotential(pow(10, -10));
 					updateElectricField();
 
-					// Export dendrite
-					std::fstream file;
-					file.open(std::to_string(i), std::ios::out);
-					exportDendrite(file);
-					file.close();
+
+//					// Export dendrite
+//					std::fstream file;
+//					file.open(std::to_string(i), std::ios::out);
+//					exportDendrite(file);
+//					file.close();
 				}
 				break;
 			}
@@ -357,16 +358,19 @@ vec2i Solver::randomShift(const int &j, const int &i)
 int Solver::neighbours4(const int &j, const int &i)
 {
 	int neighbours = 0;
-	for (int k = -1; k <= 1; k += 2)
-		for (int l = -1; l <= 1; l += 2)
+	for (int k = -1; k <= 1; ++k)
+		for (int l = -1; l <= 1; ++l)
 		{
-			int newJ = j + k, newI = i + l;
-
-			//check whether (j, i) touches domain or dendrite
-			if (computationAreaContains(newJ, newI) &&
-				(dendrite[newJ][newI] || domainMesh[newJ][newI]))
+			if (!dendriteOrDomainContains(j, i))
 			{
-				++neighbours;
+				int newJ = j + k, newI = i + l;
+
+				//check whether (j, i) touches domain or dendrite
+				if (computationAreaContains(newJ, newI) &&
+					(dendrite[newJ][newI] || domainMesh[newJ][newI]))
+				{
+					++neighbours;
+				}
 			}
 		}
 	return neighbours;
@@ -396,11 +400,10 @@ void Solver::updateElectricPotential(const double &absError)
 	{
 		for (int i = 0; i < NX; ++i)
 		{
-			electricPotentialTemporary[j][i] = 0;
-//			if (dendriteOrDomainContains(j, i))
-//			{
-//
-//			}
+			if (dendriteOrDomainContains(j, i))
+			{
+				electricPotentialTemporary[j][i] = 0;
+			}
 		}
 	}
 //#pragma omp barrier
@@ -503,40 +506,6 @@ void Solver::updateElectricPotential(const double &absError)
 	}
 	else
 	{ std::cout << "Converged within: " << counter << " iterations" << std::endl; }
-
-	std::fstream file;
-	file.open("EP.txt", std::ios::out);
-	exportPotential(file);
-	file.close();
-
-//	for (int j = 0; j < NY; ++j)
-//	{
-//		for (int i = 0; i < NX; ++i)
-//		{
-//			if (dendriteOrDomainContains(j, i))
-//			{ electricPotentialTemporary[j][i] = 0; }
-//		}
-//	}
-//	std::fstream file;
-	file.open("r", std::ios::out);
-	exportR(file);
-	file.close();
-//		std::cout << del0 << std::endl;
-//		std::cout << delNew << std::endl;
-//		std::cout << counter << std::endl;
-//	if (counter >= NX * NY)
-//	{
-//		std::fstream file;
-//
-//		file.open("data.txt", std::ios::out);
-//		exportData(file);
-//		file.close();
-//
-//		file.open("EP.txt", std::ios::out);
-//		exportPotential(file);
-//		file.close();
-//		throw std::bad_alloc();
-//	}
 }
 
 
@@ -675,26 +644,29 @@ void Solver::applyOperatorB(double **result, double **x)
 
 			if (!dendriteOrDomainContains(j, i))
 			{
-				for (int k = -1; k <= 1; k += 2)
-					for (int l = -1; l <= 1; l += 2)
+				for (int k = -1; k <= 1; ++k)
+					for (int l = -1; l <= 1; ++l)
 					{
-						int newJ = j + k, newI = i + l;
+						if (abs(k) xor abs(l))
+						{
+							int newJ = j + k, newI = i + l;
 
-						if (newJ < 0)
-						{
-							result[j][i] += (U - x[j][i]) * 2;
-						}
-						else if (!computationAreaContains(newJ, newI))
-						{
-							result[j][i] += 0;
-						}
-						else if (dendriteOrDomainContains(newJ, newI))
-						{
-							result[j][i] += (0 - x[j][i]) * 2;
-						}
-						else
-						{
-							result[j][i] += x[newJ][newI] - x[j][i];
+							if (newJ < 0)
+							{
+								result[j][i] += (U - x[j][i]) * 2;
+							}
+							else if (!computationAreaContains(newJ, newI))
+							{
+								result[j][i] += 0;
+							}
+							else if (dendriteOrDomainContains(newJ, newI))
+							{
+								result[j][i] += (0 - x[j][i]) * 2;
+							}
+							else
+							{
+								result[j][i] += x[newJ][newI] - x[j][i];
+							}
 						}
 					}
 			}
@@ -713,26 +685,29 @@ void Solver::applyOperatorNoB(double **result, double **x)
 
 			if (!dendriteOrDomainContains(j, i))
 			{
-				for (int k = -1; k <= 1; k += 2)
-					for (int l = -1; l <= 1; l += 2)
+				for (int k = -1; k <= 1; ++k)
+					for (int l = -1; l <= 1; ++l)
 					{
-						int newJ = j + k, newI = i + l;
+						if (abs(k) xor abs(l))
+						{
+							int newJ = j + k, newI = i + l;
 
-						if (newJ < 0)
-						{
-							result[j][i] += (0 - x[j][i]) * 2;
-						}
-						else if (!computationAreaContains(newJ, newI))
-						{
-							result[j][i] += 0;
-						}
-						else if (dendriteOrDomainContains(newJ, newI))
-						{
-							result[j][i] += (0 - x[j][i]) * 2;
-						}
-						else
-						{
-							result[j][i] += x[newJ][newI] - x[j][i];
+							if (newJ < 0)
+							{
+								result[j][i] += (0 - x[j][i]) * 2;
+							}
+							else if (!computationAreaContains(newJ, newI))
+							{
+								result[j][i] += 0;
+							}
+							else if (dendriteOrDomainContains(newJ, newI))
+							{
+								result[j][i] += (0 - x[j][i]) * 2;
+							}
+							else
+							{
+								result[j][i] += x[newJ][newI] - x[j][i];
+							}
 						}
 					}
 			}
