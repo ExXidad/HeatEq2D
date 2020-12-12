@@ -6,6 +6,8 @@
 #include <cmath>
 #include <iostream>
 #include <fstream>
+#include <omp.h>
+#include <chrono>
 
 #include "Domain.h"
 #include "BoundingRect.h"
@@ -20,7 +22,7 @@ private:
 	int NX, NY;
 
 	double U = 10;
-	double mu = 0.1, D = 0, Z = 1;
+	double mu = 0, D = 1, Z = 1;
 
 	bool **domainMesh;
 	bool **dendrite;

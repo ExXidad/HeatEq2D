@@ -402,24 +402,24 @@ void Solver::updateElectricPotential(const double &absError)
 	std::cout << "Solving Laplace eq. over computation area" << std::endl;
 	double **tmpPtr;
 
+	auto start = std::chrono::system_clock::now(); //start timer
+
 	int counter = 0;
-//#pragma omp parallel for schedule(static)
+
+#pragma omp parallel for
 	for (int j = 0; j < NY; ++j)
 	{
 		for (int i = 0; i < NX; ++i)
 		{
-//			if (dendriteOrDomainContains(j, i))
-//			{
 			electricPotentialTemporary[j][i] = 0;
-//			}
 		}
 	}
-//#pragma omp barrier
+#pragma omp barrier
 
 	delNew = 0;
 	applyOperatorB(r, electricPotentialTemporary);
 
-//#pragma omp parallel for schedule(static)
+#pragma omp parallel for shared(r, d) reduction(+: delNew)
 	for (int j = 0; j < NY; ++j)
 	{
 		for (int i = 0; i < NX; ++i)
@@ -429,13 +429,9 @@ void Solver::updateElectricPotential(const double &absError)
 			delNew += d[j][i] * r[j][i];
 		}
 	}
+#pragma omp barrier
 
 	del0 = delNew;
-//#pragma omp barrier
-
-
-//	else
-//	{ del0 = std::max<double>(del0, delNew); }
 
 	while (counter <= NX * NY && delNew > absError * absError * del0)
 	{
@@ -443,7 +439,7 @@ void Solver::updateElectricPotential(const double &absError)
 
 		alpha = delNew / scalarProduct(d, q);
 
-//#pragma omp parallel for schedule(static)
+#pragma omp parallel for
 		for (int j = 0; j < NY; ++j)
 		{
 			for (int i = 0; i < NX; ++i)
@@ -451,7 +447,7 @@ void Solver::updateElectricPotential(const double &absError)
 				electricPotential[j][i] = electricPotentialTemporary[j][i] + alpha * d[j][i];
 			}
 		}
-//#pragma omp barrier
+#pragma omp barrier
 
 		tmpPtr = electricPotentialTemporary;
 		electricPotentialTemporary = electricPotential;
@@ -463,7 +459,7 @@ void Solver::updateElectricPotential(const double &absError)
 		if (counter % 50 == 0)
 		{
 			applyOperatorB(r, electricPotentialTemporary);
-//#pragma omp parallel for schedule(static)
+#pragma omp parallel for shared(r) reduction(+: delNew)
 			for (int j = 0; j < NY; ++j)
 			{
 				for (int i = 0; i < NX; ++i)
@@ -472,11 +468,11 @@ void Solver::updateElectricPotential(const double &absError)
 					delNew += r[j][i] * r[j][i] / 4;
 				}
 			}
-//#pragma omp barrier
+#pragma omp barrier
 		}
 		else
 		{
-//#pragma omp parallel for schedule(static)
+#pragma omp parallel for shared(r, q) reduction(+: delNew)
 			for (int j = 0; j < NY; ++j)
 			{
 				for (int i = 0; i < NX; ++i)
@@ -485,12 +481,12 @@ void Solver::updateElectricPotential(const double &absError)
 					delNew += r[j][i] * r[j][i] / 4;
 				}
 			}
-//#pragma omp barrier
+#pragma omp barrier
 		}
 
 		beta = delNew / delOld;
 
-//#pragma omp parallel for schedule(static)
+#pragma omp parallel for shared(r, d)
 		for (int j = 0; j < NY; ++j)
 		{
 			for (int i = 0; i < NX; ++i)
@@ -498,7 +494,7 @@ void Solver::updateElectricPotential(const double &absError)
 				d[j][i] = r[j][i] / 4 + beta * d[j][i];
 			}
 		}
-//#pragma omp barrier
+#pragma omp barrier
 
 		++counter;
 	}
@@ -514,6 +510,10 @@ void Solver::updateElectricPotential(const double &absError)
 	}
 	else
 	{ std::cout << "Converged within: " << counter << " iterations" << std::endl; }
+
+	auto end = std::chrono::system_clock::now();
+	std::chrono::duration<double> elapsed = end - start;
+	std::cout << "Elapsed time: " << elapsed.count() << "s" << std::endl;
 }
 
 
@@ -643,7 +643,7 @@ void Solver::exportField(std::fstream &file)
 
 void Solver::applyOperatorB(double **result, double **x)
 {
-//#pragma omp parallel for schedule(static)
+#pragma omp parallel for shared(x, result)
 	for (int j = 0; j < NY; ++j)
 	{
 		for (int i = 0; i < NX; ++i)
@@ -680,11 +680,12 @@ void Solver::applyOperatorB(double **result, double **x)
 			}
 		}
 	}
+#pragma omp barrier
 }
 
 void Solver::applyOperatorNoB(double **result, double **x)
 {
-//#pragma omp parallel for schedule(static)
+#pragma omp parallel for shared(x, result)
 	for (int j = 0; j < NY; ++j)
 	{
 		for (int i = 0; i < NX; ++i)
@@ -721,11 +722,13 @@ void Solver::applyOperatorNoB(double **result, double **x)
 			}
 		}
 	}
+#pragma omp barrier
 }
 
 double Solver::scalarProduct(double **x, double **y)
 {
 	double result = 0;
+#pragma omp parallel for shared(r, d) reduction(+: result)
 	for (int j = 0; j < NY; ++j)
 	{
 		for (int i = 0; i < NX; ++i)
@@ -733,6 +736,7 @@ double Solver::scalarProduct(double **x, double **y)
 			result += x[j][i] * y[j][i];
 		}
 	}
+#pragma omp barrier
 	return result;
 }
 
