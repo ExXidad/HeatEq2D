@@ -30,7 +30,7 @@ Solver::Solver(BoundingRect &boundingRect, Domain &domain, const double &h)
 		{
 			if (boundingRect.contains(iToX(i), jToY(j))
 				&&
-				domain.unionContains(iToX(i), jToY(j)))
+				domain.unionContains(iToX(i), jToY(j)) || j == NY - 1)
 			{
 				domainMesh[j][i] = true;
 			}
@@ -245,7 +245,7 @@ void Solver::solve(const double &fraction, const double &reactionProbability)
 				// If reaction failed continue moving
 			else
 			{
-				randomShift(secondaryShift, particle[1], particle[0]);
+				randomShift(secondaryShift, particle[0], particle[1]);
 				vec2i tmpParticle = {particle[0] + secondaryShift[0], particle[1] + secondaryShift[1]};
 				// Delete particle if it left computation area
 				if (!computationAreaContains(tmpParticle[0], tmpParticle[1]))
@@ -406,7 +406,7 @@ void Solver::updateElectricPotential(const double &absError)
 
 	int counter = 0;
 
-#pragma omp parallel for
+//#pragma omp parallel for
 	for (int j = 0; j < NY; ++j)
 	{
 		for (int i = 0; i < NX; ++i)
@@ -414,12 +414,12 @@ void Solver::updateElectricPotential(const double &absError)
 			electricPotentialTemporary[j][i] = 0;
 		}
 	}
-#pragma omp barrier
+//#pragma omp barrier
 
 	delNew = 0;
 	applyOperatorB(r, electricPotentialTemporary);
 
-#pragma omp parallel for shared(r, d) reduction(+: delNew)
+//#pragma omp parallel for shared(r, d) reduction(+: delNew)
 	for (int j = 0; j < NY; ++j)
 	{
 		for (int i = 0; i < NX; ++i)
@@ -429,7 +429,7 @@ void Solver::updateElectricPotential(const double &absError)
 			delNew += d[j][i] * r[j][i];
 		}
 	}
-#pragma omp barrier
+//#pragma omp barrier
 
 	del0 = delNew;
 
@@ -439,7 +439,7 @@ void Solver::updateElectricPotential(const double &absError)
 
 		alpha = delNew / scalarProduct(d, q);
 
-#pragma omp parallel for
+//#pragma omp parallel for
 		for (int j = 0; j < NY; ++j)
 		{
 			for (int i = 0; i < NX; ++i)
@@ -447,7 +447,7 @@ void Solver::updateElectricPotential(const double &absError)
 				electricPotential[j][i] = electricPotentialTemporary[j][i] + alpha * d[j][i];
 			}
 		}
-#pragma omp barrier
+//#pragma omp barrier
 
 		tmpPtr = electricPotentialTemporary;
 		electricPotentialTemporary = electricPotential;
@@ -459,7 +459,7 @@ void Solver::updateElectricPotential(const double &absError)
 		if (counter % 50 == 0)
 		{
 			applyOperatorB(r, electricPotentialTemporary);
-#pragma omp parallel for shared(r) reduction(+: delNew)
+//#pragma omp parallel for shared(r) reduction(+: delNew)
 			for (int j = 0; j < NY; ++j)
 			{
 				for (int i = 0; i < NX; ++i)
@@ -468,11 +468,11 @@ void Solver::updateElectricPotential(const double &absError)
 					delNew += r[j][i] * r[j][i] / 4;
 				}
 			}
-#pragma omp barrier
+//#pragma omp barrier
 		}
 		else
 		{
-#pragma omp parallel for shared(r, q) reduction(+: delNew)
+//#pragma omp parallel for shared(r, q) reduction(+: delNew)
 			for (int j = 0; j < NY; ++j)
 			{
 				for (int i = 0; i < NX; ++i)
@@ -481,12 +481,12 @@ void Solver::updateElectricPotential(const double &absError)
 					delNew += r[j][i] * r[j][i] / 4;
 				}
 			}
-#pragma omp barrier
+//#pragma omp barrier
 		}
 
 		beta = delNew / delOld;
 
-#pragma omp parallel for shared(r, d)
+//#pragma omp parallel for shared(r, d)
 		for (int j = 0; j < NY; ++j)
 		{
 			for (int i = 0; i < NX; ++i)
@@ -494,14 +494,9 @@ void Solver::updateElectricPotential(const double &absError)
 				d[j][i] = r[j][i] / 4 + beta * d[j][i];
 			}
 		}
-#pragma omp barrier
+//#pragma omp barrier
 
 		++counter;
-	}
-	if (firstEPUpdRun)
-	{
-		del0 = delNew;
-		firstEPUpdRun = false;
 	}
 
 	if (counter >= NX * NY)
@@ -546,7 +541,12 @@ void Solver::updateElectricField()
 				}
 
 
-				if (dendriteOrDomainContains(j + 1, i))
+				if (j + 1 >= NY)
+				{
+					electricFieldJ[j][i] += electricPotentialTemporary[j][i];
+					hy += 1. / 2;
+				}
+				else if (dendriteOrDomainContains(j + 1, i))
 				{
 					electricFieldJ[j][i] += 0;
 					hy += 1. / 2;
@@ -643,7 +643,7 @@ void Solver::exportField(std::fstream &file)
 
 void Solver::applyOperatorB(double **result, double **x)
 {
-#pragma omp parallel for shared(x, result)
+//#pragma omp parallel for shared(x, result)
 	for (int j = 0; j < NY; ++j)
 	{
 		for (int i = 0; i < NX; ++i)
@@ -680,12 +680,12 @@ void Solver::applyOperatorB(double **result, double **x)
 			}
 		}
 	}
-#pragma omp barrier
+//#pragma omp barrier
 }
 
 void Solver::applyOperatorNoB(double **result, double **x)
 {
-#pragma omp parallel for shared(x, result)
+//#pragma omp parallel for shared(x, result)
 	for (int j = 0; j < NY; ++j)
 	{
 		for (int i = 0; i < NX; ++i)
@@ -722,13 +722,12 @@ void Solver::applyOperatorNoB(double **result, double **x)
 			}
 		}
 	}
-#pragma omp barrier
 }
 
 double Solver::scalarProduct(double **x, double **y)
 {
 	double result = 0;
-#pragma omp parallel for shared(r, d) reduction(+: result)
+//#pragma omp parallel for shared(r, d) reduction(+: result)
 	for (int j = 0; j < NY; ++j)
 	{
 		for (int i = 0; i < NX; ++i)
@@ -736,7 +735,6 @@ double Solver::scalarProduct(double **x, double **y)
 			result += x[j][i] * y[j][i];
 		}
 	}
-#pragma omp barrier
 	return result;
 }
 
