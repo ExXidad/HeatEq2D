@@ -6,8 +6,9 @@
 
 #include "Solver.h"
 
-Solver::Solver(BoundingRect &boundingRect, Domain &domain, const double &h)
+Solver::Solver(BoundingRect &boundingRect, Domain &domain, const double &h, const double &U)
 {
+	this->U = U;
 	this->h = h;
 	this->boundingRect = &boundingRect;
 	this->domain = &domain;
@@ -146,6 +147,9 @@ void Solver::solve(const double &fraction, const double &reactionProbability)
 
 	for (int i = 0; i < N; ++i)
 	{
+		if (reachedTopEdgeFlag){
+			break;
+		}
 		vec2i particle(2);
 		if (seedParticles.empty())
 		{
@@ -164,8 +168,8 @@ void Solver::solve(const double &fraction, const double &reactionProbability)
 					break;
 				}
 			} while (dendriteOrDomainContains(particle[0], particle[1]));
-
 		}
+
 		while (true)
 		{
 			randomShift(shift, particle[0], particle[1]);
@@ -222,6 +226,11 @@ void Solver::solve(const double &fraction, const double &reactionProbability)
 				else
 				{
 					dendrite[particle[0]][particle[1]] = true;
+					if (particle[0] == 0){
+						std::cout << "Dendrite reached top edge" << std::endl;
+						reachedTopEdgeFlag = true;
+						break;
+					}
 				}
 
 				// Progress output
@@ -233,12 +242,14 @@ void Solver::solve(const double &fraction, const double &reactionProbability)
 					updateElectricPotential(pow(10, -8));
 					updateElectricField();
 
-
-//					// Export dendrite
-					std::fstream file;
-					file.open(std::to_string(i), std::ios::out);
-					exportDendrite(file);
-					file.close();
+					if (saveProgressFlag)
+					{
+						// Export dendrite
+						std::fstream file;
+						file.open(std::to_string(i), std::ios::out);
+						exportDendrite(file);
+						file.close();
+					}
 				}
 				break;
 			}
@@ -506,9 +517,9 @@ void Solver::updateElectricPotential(const double &absError)
 	else
 	{ std::cout << "Converged within: " << counter << " iterations" << std::endl; }
 
-	auto end = std::chrono::system_clock::now();
+	auto end = std::chrono::system_clock::now();//end timer
 	std::chrono::duration<double> elapsed = end - start;
-	std::cout << "Elapsed time: " << elapsed.count() << "s" << std::endl;
+	std::cout << "Laplace took: " << elapsed.count() << "s" << std::endl;
 }
 
 
@@ -762,6 +773,41 @@ void Solver::printArray(bool **arr)
 		std::cout << std::endl;
 	}
 	std::cout << std::endl;
+}
+
+double Solver::getH() const
+{
+	return h;
+}
+
+int Solver::getNx() const
+{
+	return NX;
+}
+
+int Solver::getNy() const
+{
+	return NY;
+}
+
+double Solver::getU() const
+{
+	return U;
+}
+
+double Solver::getMu() const
+{
+	return mu;
+}
+
+double Solver::getD() const
+{
+	return D;
+}
+
+void Solver::setSaveProgressFlag(bool saveProgressFlag)
+{
+	Solver::saveProgressFlag = saveProgressFlag;
 }
 
 //#pragma clang diagnostic pop

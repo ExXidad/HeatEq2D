@@ -21,7 +21,7 @@ private:
 	double h;
 	int NX, NY;
 
-	double U = 4;
+	double U;
 	double mu = 6.4 * pow(10,-8), D = 1.648 * pow(10,-9), Z = 1;
 
 	bool **domainMesh;
@@ -30,7 +30,10 @@ private:
 	double **electricPotentialTemporary;
 	double **r, **d, **q;
 	double alpha, beta, delOld, delNew, del0;
+
 	bool firstEPUpdRun = true;
+	bool saveProgressFlag = true;
+	bool reachedTopEdgeFlag = false;
 
 	double **electricFieldI;
 	double **electricFieldJ;
@@ -74,7 +77,22 @@ private:
 	void applyOperatorNoB(double **result, double **x);
 
 public:
-	Solver(BoundingRect &boundingRect, Domain &domain, const double &h);
+	double getH() const;
+
+	int getNx() const;
+
+	int getNy() const;
+
+	double getU() const;
+
+	double getMu() const;
+
+	double getD() const;
+
+	void setSaveProgressFlag(bool saveProgressFlag);
+
+public:
+	Solver(BoundingRect &boundingRect, Domain &domain, const double &h, const double &U);
 
 	~Solver();
 
