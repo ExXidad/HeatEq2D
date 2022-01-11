@@ -1,8 +1,3 @@
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "openmp-use-default-none"
-//
-// Created by xidad on 26.10.2020.
-//
 
 #include "Solver.h"
 

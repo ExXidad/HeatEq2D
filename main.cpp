@@ -34,7 +34,7 @@ int main(int argc, char **argv)
 //	domain.addDomainFunction(DF2);
 
 	// Initialize solver
-	Solver solver(boundingRect, domain, 3 * pow(10, -5), U);
+	Solver solver(boundingRect, domain, 9 * pow(10, -5), U);
 	solver.setSaveProgressFlag(false);
 	solver.randomSeed(n*filling_fraction);
 
