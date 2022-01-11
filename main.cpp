@@ -28,7 +28,7 @@ int main(int argc, char **argv)
 	auto start = std::chrono::system_clock::now(); //start timer
 
 	// Set geometry
-	BoundingRect boundingRect(0, 0.025, 0, 0.016);
+	BoundingRect boundingRect(0, 0.02, 0, 0.02);
 	Domain domain;
 	domain.addDomainFunction(DF1);
 //	domain.addDomainFunction(DF2);

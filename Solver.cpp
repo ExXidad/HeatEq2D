@@ -73,7 +73,7 @@ Solver::Solver(BoundingRect &boundingRect, Domain &domain, const double &h, cons
 		electricFieldJ[i] = new double[NX];
 
 
-	gen = std::mt19937(time(nullptr));
+	gen = std::mt19937(123);
 	randI = std::uniform_int_distribution<>(0, NX - 1);
 	randJ = std::uniform_int_distribution<>(0, NY - 1);
 	uid = std::uniform_int_distribution<>(0, 1);
