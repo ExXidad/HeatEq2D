@@ -4,7 +4,7 @@
 #include "Domain.h"
 #include "BoundingRect.h"
 #include "Solver.h"
-
+// smth to test branch
 //DF - domain function
 bool DF1(const double &x, const double &y)
 {
