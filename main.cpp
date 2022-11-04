@@ -8,7 +8,8 @@
 constexpr double xmin = 0., xmax = 2.;
 constexpr double ymin = 0., ymax = 1.;
 constexpr double T0 = 1.;
-
+BoundingRect bottomRect(xmin - 0.5, xmax + 0.5, -0.5 + ymin, ymin);
+BoundingRect topRect(xmin - 0.5, xmax + 0.5, ymax, ymax + 0.5);
 
 bool domainFunction(const double &x, const double &y)
 {
@@ -17,7 +18,10 @@ bool domainFunction(const double &x, const double &y)
 
 bool constTempFCond(const double &x, const double &y)
 {
-	return !((xmin <= x && x <= xmax) && (ymin <= y && y <= ymax));
+//	return !((xmin <= x && x <= xmax) && (ymin <= y && y <= ymax));
+	return (bottomRect.contains(x, y)
+			||
+			topRect.contains(x, y));
 }
 
 double lambdaF(const double &x, const double &y)
@@ -27,12 +31,17 @@ double lambdaF(const double &x, const double &y)
 
 double sourceF(const double &x, const double &y)
 {
+	return BoundingRect(0.5, 1.5, 0.25, 0.75).contains(x, y);
 	return 0.;
 }
 
 double tempF(const double &x, const double &y)
 {
-	return y<(ymin+ymax)*0.5?50:150;
+//	return y < (ymin + ymax) * 0.5 ? 50 : 150;
+	if (bottomRect.contains(x, y))
+		return 50.;
+	else if (topRect.contains(x, y))
+		return 150.;
 }
 
 

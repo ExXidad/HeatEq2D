@@ -234,7 +234,7 @@ void Solver::applyOperatorB(float **result, float **x)
 								result[j][i] += x[newJ][newI] - x[j][i];
 						}
 			}
-			result[j][i] = sourceF(iToX(i), jToY(j)) - result[j][i] * 0.25 * lambdaF(iToX(i), jToY(j));
+			result[j][i] = -sourceF(iToX(i), jToY(j)) - result[j][i] * 0.25 * lambdaF(iToX(i), jToY(j));
 		}
 }
 
