@@ -18,25 +18,25 @@ using namespace myTypedefs;
 class Solver
 {
 private:
-	double h;
+	float h;
 	int NX, NY;
 
-	double U;
-	double mu = 6.4 * pow(10,-8), D = 1.648 * pow(10,-9), Z = 1;
+	float U;
+	float mu = 6.4 * pow(10,-8), D = 1.648 * pow(10,-9), Z = 1;
 
 	bool **domainMesh;
 	bool **dendrite;
-	double **electricPotential;
-	double **electricPotentialTemporary;
-	double **r, **d, **q;
-	double alpha, beta, delOld, delNew, del0;
+	float **electricPotential;
+	float **electricPotentialTemporary;
+	float **r, **d, **q;
+	float alpha, beta, delOld, delNew, del0;
 
 	bool firstEPUpdRun = true;
 	bool saveProgressFlag = true;
 	bool reachedTopEdgeFlag = false;
 
-	double **electricFieldI;
-	double **electricFieldJ;
+	float **electricFieldI;
+	float **electricFieldJ;
 
 	Domain *domain;
 	BoundingRect *boundingRect;
@@ -52,9 +52,9 @@ private:
 	std::uniform_real_distribution<> urd;
 
 private:
-	double iToX(const int &i);
+	float iToX(const int &i);
 
-	double jToY(const int &j);
+	float jToY(const int &j);
 
 	bool collidesAnything(const int &j, const int &i);
 
@@ -64,43 +64,43 @@ private:
 
 	void randomShift(vec2i &shiftVar, const int &j, const int &i);
 
-	void updateElectricPotential(const double &absError);
+	void updateElectricPotential(const float &absError);
 
 	void updateElectricField();
 
-	double scalarProduct(double **x, double **y);
+	float scalarProduct(float **x, float **y);
 
 	__attribute__((always_inline)) bool computationAreaContains(const int &j, const int &i);
 
-	void applyOperatorB(double **result, double **x);
+	void applyOperatorB(float **result, float **x);
 
-	void applyOperatorNoB(double **result, double **x);
+	void applyOperatorNoB(float **result, float **x);
 
 public:
-	double getH() const;
+	float getH() const;
 
 	int getNx() const;
 
 	int getNy() const;
 
-	double getU() const;
+	float getU() const;
 
-	double getMu() const;
+	float getMu() const;
 
-	double getD() const;
+	float getD() const;
 
 	void setSaveProgressFlag(bool saveProgressFlag);
 
 public:
-	Solver(BoundingRect &boundingRect, Domain &domain, const double &h, const double &U);
+	Solver(BoundingRect &boundingRect, Domain &domain, const float &h, const float &U);
 
 	~Solver();
 
 	void addNucleus(const int &j, const int &i);
 
-	void randomSeed(const double &fraction);
+	void randomSeed(const float &fraction);
 
-	void solve(const double &fraction, const double &reactionProbability);
+	void solve(const float &fraction, const float &reactionProbability);
 
 	void exportDendrite(std::fstream &file);
 
@@ -114,7 +114,7 @@ public:
 
 	void exportR(std::fstream &file);
 
-	void printArray(double **arr);
+	void printArray(float **arr);
 
 	void printArray(bool **arr);
 };

@@ -1,7 +1,7 @@
 
 #include "Solver.h"
 
-Solver::Solver(BoundingRect &boundingRect, Domain &domain, const double &h, const double &U)
+Solver::Solver(BoundingRect &boundingRect, Domain &domain, const float &h, const float &U)
 {
 	this->U = U;
 	this->h = h;
@@ -33,39 +33,39 @@ Solver::Solver(BoundingRect &boundingRect, Domain &domain, const double &h, cons
 		}
 	}
 
-	electricPotential = new double *[NY];
+	electricPotential = new float *[NY];
 	for (int i = 0; i < NY; ++i)
-		electricPotential[i] = new double[NX];
+		electricPotential[i] = new float[NX];
 
-	electricPotentialTemporary = new double *[NY];
+	electricPotentialTemporary = new float *[NY];
 	for (int j = 0; j < NY; ++j)
 	{
-		electricPotentialTemporary[j] = new double[NX];
+		electricPotentialTemporary[j] = new float[NX];
 		for (int i = 0; i < NX; ++i)
 		{
-			electricPotentialTemporary[j][i] = U * (1 - static_cast<double>(j) / NY);
+			electricPotentialTemporary[j][i] = U * (1 - static_cast<float>(j) / NY);
 		}
 	}
 
-	r = new double *[NY];
+	r = new float *[NY];
 	for (int i = 0; i < NY; ++i)
-		r[i] = new double[NX];
+		r[i] = new float[NX];
 
-	d = new double *[NY];
+	d = new float *[NY];
 	for (int i = 0; i < NY; ++i)
-		d[i] = new double[NX];
+		d[i] = new float[NX];
 
-	q = new double *[NY];
+	q = new float *[NY];
 	for (int i = 0; i < NY; ++i)
-		q[i] = new double[NX];
+		q[i] = new float[NX];
 
-	electricFieldI = new double *[NY];
+	electricFieldI = new float *[NY];
 	for (int i = 0; i < NY; ++i)
-		electricFieldI[i] = new double[NX];
+		electricFieldI[i] = new float[NX];
 
-	electricFieldJ = new double *[NY];
+	electricFieldJ = new float *[NY];
 	for (int i = 0; i < NY; ++i)
-		electricFieldJ[i] = new double[NX];
+		electricFieldJ[i] = new float[NX];
 
 
 	gen = std::mt19937(123);
@@ -110,12 +110,12 @@ Solver::~Solver()
 	delete[] electricPotentialTemporary;
 }
 
-double Solver::iToX(const int &i)
+float Solver::iToX(const int &i)
 {
 	return boundingRect->getSize()[0][0] + h / 2 + i * h;
 }
 
-double Solver::jToY(const int &j)
+float Solver::jToY(const int &j)
 {
 	return boundingRect->getSize()[1][1] - (h / 2 + j * h);
 }
@@ -125,7 +125,7 @@ void Solver::addNucleus(const int &j, const int &i)
 	dendrite[j][i] = true;
 }
 
-void Solver::solve(const double &fraction, const double &reactionProbability)
+void Solver::solve(const float &fraction, const float &reactionProbability)
 {
 	int N = static_cast
 			<int>(fraction * NX * NY);
@@ -323,13 +323,13 @@ void Solver::exportData(std::fstream &file)
 
 void Solver::randomShift(vec2i &shiftVar, const int &j, const int &i)
 {
-	double Ei = electricFieldI[j][i], Ej = electricFieldJ[j][i];
-	double coeff = h * Z * mu / (D + h * Z * mu * (std::abs(Ei) + std::abs(Ej)));
-	double Pi = coeff * std::abs(Ei);
-	double Pj = coeff * std::abs(Ej);
-	double basicProb = (1 - Pi - Pj) / 4;
+	float Ei = electricFieldI[j][i], Ej = electricFieldJ[j][i];
+	float coeff = h * Z * mu / (D + h * Z * mu * (std::abs(Ei) + std::abs(Ej)));
+	float Pi = coeff * std::abs(Ei);
+	float Pj = coeff * std::abs(Ej);
+	float basicProb = (1 - Pi - Pj) / 4;
 
-	std::vector<double> transitionProbabilities(4, basicProb);
+	std::vector<float> transitionProbabilities(4, basicProb);
 	if (Ei >= 0)
 	{
 		transitionProbabilities[0] += Pi;
@@ -346,7 +346,7 @@ void Solver::randomShift(vec2i &shiftVar, const int &j, const int &i)
 
 
 	int dI = 0, dJ = 0;
-	double randNumber = urd(gen);
+	float randNumber = urd(gen);
 	for (int k = 0; k < transitionProbabilities.size(); ++k)
 	{
 		if (randNumber <= transitionProbabilities[k])
@@ -390,7 +390,7 @@ int Solver::neighbours4(const int &j, const int &i)
 	return neighbours;
 }
 
-void Solver::randomSeed(const double &fraction)
+void Solver::randomSeed(const float &fraction)
 {
 	int N = static_cast<int>(fraction * NX * NY);
 	for (int i = 0; i < N; ++i)
@@ -403,10 +403,10 @@ void Solver::randomSeed(const double &fraction)
 	}
 }
 
-void Solver::updateElectricPotential(const double &absError)
+void Solver::updateElectricPotential(const float &absError)
 {
 	std::cout << "Solving Laplace eq. over computation area" << std::endl;
-	double **tmpPtr;
+	float **tmpPtr;
 
 	auto start = std::chrono::system_clock::now(); //start timer
 
@@ -513,7 +513,7 @@ void Solver::updateElectricPotential(const double &absError)
 	{ std::cout << "Converged within: " << counter << " iterations" << std::endl; }
 
 	auto end = std::chrono::system_clock::now();//end timer
-	std::chrono::duration<double> elapsed = end - start;
+	std::chrono::duration<float> elapsed = end - start;
 	std::cout << "Laplace took: " << elapsed.count() << "s" << std::endl;
 }
 
@@ -528,7 +528,7 @@ void Solver::updateElectricField()
 			electricFieldI[j][i] = 0;
 			if (!dendriteOrDomainContains(j, i))
 			{
-				double hx = 0, hy = 0;
+				float hx = 0, hy = 0;
 
 				if (j - 1 < 0)
 				{
@@ -647,7 +647,7 @@ void Solver::exportField(std::fstream &file)
 }
 
 
-void Solver::applyOperatorB(double **result, double **x)
+void Solver::applyOperatorB(float **result, float **x)
 {
 //#pragma omp parallel for shared(x, result)
 	for (int j = 0; j < NY; ++j)
@@ -689,7 +689,7 @@ void Solver::applyOperatorB(double **result, double **x)
 //#pragma omp barrier
 }
 
-void Solver::applyOperatorNoB(double **result, double **x)
+void Solver::applyOperatorNoB(float **result, float **x)
 {
 //#pragma omp parallel for shared(x, result)
 	for (int j = 0; j < NY; ++j)
@@ -730,9 +730,9 @@ void Solver::applyOperatorNoB(double **result, double **x)
 	}
 }
 
-double Solver::scalarProduct(double **x, double **y)
+float Solver::scalarProduct(float **x, float **y)
 {
-	double result = 0;
+	float result = 0;
 //#pragma omp parallel for shared(r, d) reduction(+: result)
 	for (int j = 0; j < NY; ++j)
 	{
@@ -744,7 +744,7 @@ double Solver::scalarProduct(double **x, double **y)
 	return result;
 }
 
-void Solver::printArray(double **arr)
+void Solver::printArray(float **arr)
 {
 	for (int j = 0; j < NY; ++j)
 	{
@@ -770,7 +770,7 @@ void Solver::printArray(bool **arr)
 	std::cout << std::endl;
 }
 
-double Solver::getH() const
+float Solver::getH() const
 {
 	return h;
 }
@@ -785,17 +785,17 @@ int Solver::getNy() const
 	return NY;
 }
 
-double Solver::getU() const
+float Solver::getU() const
 {
 	return U;
 }
 
-double Solver::getMu() const
+float Solver::getMu() const
 {
 	return mu;
 }
 
-double Solver::getD() const
+float Solver::getD() const
 {
 	return D;
 }
