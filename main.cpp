@@ -8,6 +8,8 @@
 constexpr double xmin = 0., xmax = 2.;
 constexpr double ymin = 0., ymax = 1.;
 constexpr double T0 = 1.;
+BoundingRect boundingRect(xmin, xmax, ymin, ymax);
+BoundingRect lambdaRect(xmin, xmin + 0.5, ymax - 0.5, ymax);
 BoundingRect bottomRect(xmin - 0.5, xmax + 0.5, -0.5 + ymin, ymin);
 BoundingRect topRect(xmin - 0.5, xmax + 0.5, ymax, ymax + 0.5);
 
@@ -18,20 +20,23 @@ bool domainFunction(const double &x, const double &y)
 
 bool constTempFCond(const double &x, const double &y)
 {
-//	return !((xmin <= x && x <= xmax) && (ymin <= y && y <= ymax));
-	return (bottomRect.contains(x, y)
-			||
-			topRect.contains(x, y));
+	return !boundingRect.contains(x, y);
+//	return (bottomRect.contains(x, y)
+//			||
+//			topRect.contains(x, y));
 }
 
 double lambdaF(const double &x, const double &y)
 {
-	return 1.;
+	if (lambdaRect.contains(x, y))
+		return 1e20;
+	else
+		return 1.;
 }
 
-double sourceF(const double &x, const double &y)
+double sourceF(const double &x, const double &y, const double& T)
 {
-	return BoundingRect(0.5, 1.5, 0.25, 0.75).contains(x, y);
+//	return BoundingRect(0.5, 1.5, 0.25, 0.75).contains(x, y);
 	return 0.;
 }
 
@@ -50,7 +55,6 @@ int main(int argc, char **argv)
 	auto start = std::chrono::system_clock::now(); //start timer
 
 	// Set geometry
-	BoundingRect boundingRect(xmin, xmax, ymin, ymax);
 	Domain domain;
 	domain.addDomainFunction(domainFunction);
 
@@ -67,7 +71,7 @@ int main(int argc, char **argv)
 	solver.solve(1e-3);
 
 	std::fstream file;
-	file.open("temp.txt", std::ios::out);
+	file.open("temp1.txt", std::ios::out);
 	solver.exportTemp(file, false);
 	file.close();
 

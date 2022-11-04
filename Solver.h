@@ -24,10 +24,15 @@ private:
 	bool **domainMesh;
 	float **T;
 	float **tmpT;
-	bool(*constTempFCond)(const double &, const double &);
-	double(*tempF)(const double &, const double &);
-	double(*lambdaF)(const double &, const double &);
-	double(*sourceF)(const double &, const double &);
+
+	bool (*constTempFCond)(const double &, const double &);
+
+	double (*tempF)(const double &, const double &);
+
+	double (*lambdaF)(const double &, const double &);
+
+	double (*sourceF)(const double &, const double &, const double &);
+
 	double T0;
 	float **r, **d, **q;
 	float alpha, beta, delOld, delNew, del0;
@@ -78,13 +83,13 @@ public:
 		   double(&tempF)(const double &, const double &),
 		   bool(&constTempF)(const double &, const double &),
 		   double(&lambdaF)(const double &, const double &),
-		   double(&sourceF)(const double &, const double &),
+		   double(&sourceF)(const double &, const double &, const double &),
 		   const double T0 = 1.
 	);
 
 	~Solver();
 
-	void solve(const double tol=1e-5);
+	void solve(const double tol = 1e-5);
 
 	void exportComputationRegion(std::fstream &file);
 
