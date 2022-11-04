@@ -64,7 +64,7 @@ int main(int argc, char **argv)
 	std::cout << "Amount of cells: " << solver.getNy() * solver.getNx() << std::endl;
 
 	// Start solving
-	solver.solve();
+	solver.solve(1e-3);
 
 	std::fstream file;
 	file.open("temp.txt", std::ios::out);

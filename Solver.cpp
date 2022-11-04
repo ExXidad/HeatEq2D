@@ -91,9 +91,9 @@ double Solver::jToY(const int &j)
 	return boundingRect->getSize()[1][1] - j * h;
 }
 
-void Solver::solve()
+void Solver::solve(const double tol)
 {
-	updateElectricPotential(pow(10, -10));
+	updateElectricPotential(tol);
 }
 
 

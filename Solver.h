@@ -84,7 +84,7 @@ public:
 
 	~Solver();
 
-	void solve();
+	void solve(const double tol=1e-5);
 
 	void exportComputationRegion(std::fstream &file);
 
