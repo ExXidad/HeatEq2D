@@ -30,10 +30,10 @@ void Domain::setDFInteractionType(const DFInteractionType &type)
 {
 	this->type = type;
 	switch (type) {
-		case UNION:
+		case DFInteractionType::UNION:
 			containsFunction = &Domain::unionContains;
 			break;
-		case INTERSECTION:
+		case DFInteractionType::INTERSECTION:
 			containsFunction = &Domain::intersectionContains;
 			break;
 	}

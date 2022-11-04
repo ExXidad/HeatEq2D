@@ -21,22 +21,20 @@ private:
 	float h;
 	int NX, NY;
 
-	float U;
-	float mu = 6.4 * pow(10,-8), D = 1.648 * pow(10,-9), Z = 1;
-
 	bool **domainMesh;
-	bool **dendrite;
-	float **electricPotential;
-	float **electricPotentialTemporary;
+	float **T;
+	float **tmpT;
+	bool(*constTempFCond)(const double &, const double &);
+	double(*tempF)(const double &, const double &);
+	double(*lambdaF)(const double &, const double &);
+	double(*sourceF)(const double &, const double &);
+	double T0;
 	float **r, **d, **q;
 	float alpha, beta, delOld, delNew, del0;
 
 	bool firstEPUpdRun = true;
 	bool saveProgressFlag = true;
 	bool reachedTopEdgeFlag = false;
-
-	float **electricFieldI;
-	float **electricFieldJ;
 
 	Domain *domain;
 	BoundingRect *boundingRect;
@@ -52,21 +50,11 @@ private:
 	std::uniform_real_distribution<> urd;
 
 private:
-	float iToX(const int &i);
+	double iToX(const int &i);
 
-	float jToY(const int &j);
-
-	bool collidesAnything(const int &j, const int &i);
-
-	__attribute__((always_inline)) bool dendriteOrDomainContains(const int &j, const int &i);
-
-	int neighbours4(const int &j, const int &i);
-
-	void randomShift(vec2i &shiftVar, const int &j, const int &i);
+	double jToY(const int &j);
 
 	void updateElectricPotential(const float &absError);
-
-	void updateElectricField();
 
 	float scalarProduct(float **x, float **y);
 
@@ -83,34 +71,24 @@ public:
 
 	int getNy() const;
 
-	float getU() const;
-
-	float getMu() const;
-
-	float getD() const;
-
 	void setSaveProgressFlag(bool saveProgressFlag);
 
 public:
-	Solver(BoundingRect &boundingRect, Domain &domain, const float &h, const float &U);
+	Solver(BoundingRect &boundingRect, Domain &domain, const float &h,
+		   double(&tempF)(const double &, const double &),
+		   bool(&constTempF)(const double &, const double &),
+		   double(&lambdaF)(const double &, const double &),
+		   double(&sourceF)(const double &, const double &),
+		   const double T0 = 1.
+	);
 
 	~Solver();
 
-	void addNucleus(const int &j, const int &i);
-
-	void randomSeed(const float &fraction);
-
-	void solve(const float &fraction, const float &reactionProbability);
-
-	void exportDendrite(std::fstream &file);
+	void solve();
 
 	void exportComputationRegion(std::fstream &file);
 
-	void exportData(std::fstream &file);
-
-	void exportPotential(std::fstream &file);
-
-	void exportField(std::fstream &file);
+	void exportTemp(std::fstream &file, const bool includeCoord = false);
 
 	void exportR(std::fstream &file);
 

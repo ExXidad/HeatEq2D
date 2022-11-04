@@ -4,72 +4,62 @@
 #include "Domain.h"
 #include "BoundingRect.h"
 #include "Solver.h"
-// smth to test branch
-//DF - domain function
-bool DF1(const double &x, const double &y)
+
+constexpr double xmin = 0., xmax = 2.;
+constexpr double ymin = 0., ymax = 1.;
+constexpr double T0 = 1.;
+
+
+bool domainFunction(const double &x, const double &y)
 {
-	return y <= 2 * pow(10, -6);
+	return true;
 }
 
-bool DF2(const double &x, const double &y)
+bool constTempFCond(const double &x, const double &y)
 {
-	return (3.33 <= x && x <= 6.66) && (1 <= y && y <= 2);
+	return !((xmin <= x && x <= xmax) && (ymin <= y && y <= ymax));
 }
+
+double lambdaF(const double &x, const double &y)
+{
+	return 1.;
+}
+
+double sourceF(const double &x, const double &y)
+{
+	return 0.;
+}
+
+double tempF(const double &x, const double &y)
+{
+	return y<(ymin+ymax)*0.5?50:150;
+}
+
 
 int main(int argc, char **argv)
 {
-	double filling_fraction = 0.35;
-
-	if (argc != 3)
-	{ throw std::runtime_error("Incorrect number of passed args"); }
-	double n = atof(argv[1]);
-	double U = atof(argv[2]);
-
 	auto start = std::chrono::system_clock::now(); //start timer
 
 	// Set geometry
-	BoundingRect boundingRect(0, 0.02, 0, 0.02);
+	BoundingRect boundingRect(xmin, xmax, ymin, ymax);
 	Domain domain;
-	domain.addDomainFunction(DF1);
-//	domain.addDomainFunction(DF2);
+	domain.addDomainFunction(domainFunction);
 
 	// Initialize solver
-	Solver solver(boundingRect, domain, 3 * pow(10, -5), U);
-	solver.setSaveProgressFlag(false);
-	solver.randomSeed(n*filling_fraction);
+	Solver solver(boundingRect, domain, 1e-2,
+				  tempF, constTempFCond, lambdaF, sourceF, 100.);
 
 	std::cout << "Run details:" << std::endl;
 	std::cout << "h: " << solver.getH() << std::endl;
 	std::cout << "[NX, NY]: [" << solver.getNx() << ", " << solver.getNy() << "]" << std::endl;
-	std::cout << "Amount of cells: " << solver.getNy()*solver.getNx() << std::endl;
-	std::cout << "Fraction: " << n << std::endl;
-	std::cout << "U: " << solver.getU() << std::endl;
-	std::cout << "D: " << solver.getD() << std::endl;
-	std::cout << "mu: " << solver.getMu() << std::endl;
-
+	std::cout << "Amount of cells: " << solver.getNy() * solver.getNx() << std::endl;
 
 	// Start solving
-	solver.solve(filling_fraction, 0.15);
+	solver.solve();
 
 	std::fstream file;
-	file.open("domain.txt", std::ios::out);
-	solver.exportComputationRegion(file);
-	file.close();
-
-	file.open("dendrite.txt", std::ios::out);
-	solver.exportDendrite(file);
-	file.close();
-
-	file.open("data.txt", std::ios::out);
-	solver.exportData(file);
-	file.close();
-
-	file.open("EP.txt", std::ios::out);
-	solver.exportPotential(file);
-	file.close();
-
-	file.open("EF.txt", std::ios::out);
-	solver.exportField(file);
+	file.open("temp.txt", std::ios::out);
+	solver.exportTemp(file, false);
 	file.close();
 
 	auto end = std::chrono::system_clock::now();//end timer
