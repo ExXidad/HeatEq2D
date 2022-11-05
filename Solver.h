@@ -8,6 +8,8 @@
 #include <fstream>
 #include <omp.h>
 #include <chrono>
+#include <string>
+#include <ios>
 
 #include "Domain.h"
 #include "BoundingRect.h"
@@ -18,12 +20,12 @@ using namespace myTypedefs;
 class Solver
 {
 private:
-	float h;
+	double h;
 	int NX, NY;
 
 	bool **domainMesh;
-	float **T;
-	float **tmpT;
+	double **T;
+	double **tmpT;
 
 	bool (*constTempFCond)(const double &, const double &);
 
@@ -34,8 +36,8 @@ private:
 	double (*sourceF)(const double &, const double &, const double &);
 
 	double T0;
-	float **r, **d, **q;
-	float alpha, beta, delOld, delNew, del0;
+	double **r, **d, **q;
+	double alpha, beta, delOld, delNew, del0;
 
 	bool firstEPUpdRun = true;
 	bool saveProgressFlag = true;
@@ -59,15 +61,15 @@ private:
 
 	double jToY(const int &j);
 
-	void updateElectricPotential(const float &absError);
+	void solveTemperature(const double &absError);
 
-	float scalarProduct(float **x, float **y);
+	double scalarProduct(double **x, double **y);
 
 	__attribute__((always_inline)) bool computationAreaContains(const int &j, const int &i);
 
-	void applyOperatorB(float **result, float **x);
+	void applyOperatorB(double **result, double **x);
 
-	void applyOperatorNoB(float **result, float **x);
+	void applyOperatorNoB(double **result, double **x);
 
 public:
 	float getH() const;
@@ -79,7 +81,7 @@ public:
 	void setSaveProgressFlag(bool saveProgressFlag);
 
 public:
-	Solver(BoundingRect &boundingRect, Domain &domain, const float &h,
+	Solver(BoundingRect &boundingRect, Domain &domain, const double &h,
 		   double(&tempF)(const double &, const double &),
 		   bool(&constTempF)(const double &, const double &),
 		   double(&lambdaF)(const double &, const double &),
@@ -97,7 +99,7 @@ public:
 
 	void exportR(std::fstream &file);
 
-	void printArray(float **arr);
+	void printArray(double **arr);
 
 	void printArray(bool **arr);
 };

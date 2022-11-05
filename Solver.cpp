@@ -1,11 +1,11 @@
 
 #include "Solver.h"
 
-Solver::Solver(BoundingRect &boundingRect, Domain &domain, const float &h,
+Solver::Solver(BoundingRect &boundingRect, Domain &domain, const double &h,
 			   double(&tempF)(const double &, const double &),
 			   bool(&constTempFCond)(const double &, const double &),
 			   double(&lambdaF)(const double &, const double &),
-			   double(&sourceF)(const double &, const double &,const double &),
+			   double(&sourceF)(const double &, const double &, const double &),
 			   double T0
 )
 {
@@ -33,29 +33,25 @@ Solver::Solver(BoundingRect &boundingRect, Domain &domain, const float &h,
 	}
 
 
-	T = new float *[NY];
+	T = new double *[NY];
 	for (int i = 0; i < NY; ++i)
-		T[i] = new float[NX];
+		T[i] = new double[NX];
 
-	tmpT = new float *[NY];
+	tmpT = new double *[NY];
 	for (int j = 0; j < NY; ++j)
-	{
-		tmpT[j] = new float[NX];
-		for (int i = 0; i < NX; ++i)
-			tmpT[j][i] = tempF(iToX(i), jToY(j));
-	}
+		tmpT[j] = new double[NX];
 
-	r = new float *[NY];
+	r = new double *[NY];
 	for (int i = 0; i < NY; ++i)
-		r[i] = new float[NX];
+		r[i] = new double[NX];
 
-	d = new float *[NY];
+	d = new double *[NY];
 	for (int i = 0; i < NY; ++i)
-		d[i] = new float[NX];
+		d[i] = new double[NX];
 
-	q = new float *[NY];
+	q = new double *[NY];
 	for (int i = 0; i < NY; ++i)
-		q[i] = new float[NX];
+		q[i] = new double[NX];
 }
 
 Solver::~Solver()
@@ -93,7 +89,7 @@ double Solver::jToY(const int &j)
 
 void Solver::solve(const double tol)
 {
-	updateElectricPotential(tol);
+	solveTemperature(tol);
 }
 
 
@@ -110,10 +106,9 @@ void Solver::exportComputationRegion(std::fstream &file)
 	}
 }
 
-void Solver::updateElectricPotential(const float &absError)
+void Solver::solveTemperature(const double &absError)
 {
 	std::cout << "Solving Heat eq. over computation area" << std::endl;
-	float **tmpPtr;
 
 	auto start = std::chrono::system_clock::now(); //start timer
 
@@ -121,10 +116,12 @@ void Solver::updateElectricPotential(const float &absError)
 
 	for (int j = 0; j < NY; ++j)
 		for (int i = 0; i < NX; ++i)
-			tmpT[j][i] = 100;
+			tmpT[j][i] = T0;
 
 	delNew = 0;
 	applyOperatorB(r, tmpT);
+
+//	printArray(r);
 
 	for (int j = 0; j < NY; ++j)
 		for (int i = 0; i < NX; ++i)
@@ -133,8 +130,21 @@ void Solver::updateElectricPotential(const float &absError)
 	delNew = scalarProduct(r, r);
 	del0 = delNew;
 
-	while (counter <= NX * NY && delNew > absError * absError * del0)
+	std::cout << delNew << std::endl;
+	system("rm r/*");
+
+	while (counter <= NX * NY && delNew > absError * absError * NX * NY)
 	{
+		if (counter % 20 == 0)
+			std::cout << delNew << std::endl;
+//		if (counter%1==0&&counter<300)
+//		{
+//			std::fstream file;
+//			file.open("r/"+std::to_string(counter) + "_r.txt", std::ios::out);
+//			exportR(file);
+//			file.close();
+//		}
+
 		applyOperatorNoB(q, d);
 
 		alpha = delNew / scalarProduct(d, q);
@@ -143,9 +153,7 @@ void Solver::updateElectricPotential(const float &absError)
 			for (int i = 0; i < NX; ++i)
 				T[j][i] = tmpT[j][i] + alpha * d[j][i];
 
-		tmpPtr = tmpT;
-		tmpT = T;
-		T = tmpPtr;
+		std::swap(tmpT, T);
 
 		if (counter % 50 == 0)
 			applyOperatorB(r, tmpT);
@@ -209,7 +217,7 @@ bool Solver::computationAreaContains(const int &j, const int &i)
 	return (0 <= j && j < NY) && (0 <= i && i < NX);
 }
 
-void Solver::applyOperatorB(float **result, float **x)
+void Solver::applyOperatorB(double **result, double **x)
 {
 	for (int j = 0; j < NY; ++j)
 		for (int i = 0; i < NX; ++i)
@@ -225,20 +233,22 @@ void Solver::applyOperatorB(float **result, float **x)
 						{
 							int newJ = j + k, newI = i + l;
 							double newX = iToX(newI), newY = jToY(newJ);
+							double tmp = tempF(newX, newY);
 
 							if (constTempFCond(newX, newY))
-								result[j][i] += (tempF(newX, newY) - x[j][i]) * 2;
-							else if (!computationAreaContains(newJ, newI) || !domainMesh[newJ][newI])
-								result[j][i] += 0;
+								result[j][i] += (tempF(newX, newY) - x[j][i]);
+//							else if (!computationAreaContains(newJ, newI) || !domainMesh[newJ][newI])
+//								result[j][i] += 0;
 							else
-								result[j][i] += x[newJ][newI] - x[j][i];
+								result[j][i] += (x[newJ][newI] - x[j][i]);
 						}
 			}
-			result[j][i] = -sourceF(iToX(i), jToY(j), x[j][i]) - result[j][i] * 0.25 * lambdaF(iToX(i), jToY(j));
+			result[j][i] =
+					-sourceF(iToX(i), jToY(j), x[j][i]) / lambdaF(iToX(i), jToY(j)) * h * h + result[j][i];
 		}
 }
 
-void Solver::applyOperatorNoB(float **result, float **x)
+void Solver::applyOperatorNoB(double **result, double **x)
 {
 	for (int j = 0; j < NY; ++j)
 		for (int i = 0; i < NX; ++i)
@@ -253,33 +263,31 @@ void Solver::applyOperatorNoB(float **result, float **x)
 						if (abs(k) xor abs(l))
 						{
 							int newJ = j + k, newI = i + l;
+							double newX = iToX(newI), newY = jToY(newJ);
+							double tmp = tempF(newX, newY);
 
-							if (constTempFCond(iToX(newI), jToY(newJ)))
-								result[j][i] += (0. - x[j][i]) * 2;
-							else if (!computationAreaContains(newJ, newI) || !domainMesh[newJ][newI])
-								result[j][i] += 0;
+							if (constTempFCond(newX, newY))
+								result[j][i] += (0. - x[j][i]);
+//							else if (!computationAreaContains(newJ, newI) || !domainMesh[newJ][newI])
+//								result[j][i] += 0;
 							else
-								result[j][i] += x[newJ][newI] - x[j][i];
+								result[j][i] += (x[newJ][newI] - x[j][i]);
 						}
 			}
-			result[j][i] = result[j][i] * 0.25 * lambdaF(iToX(i), jToY(j));
+			result[j][i] = -result[j][i];
 		}
 }
 
-float Solver::scalarProduct(float **x, float **y)
+double Solver::scalarProduct(double **x, double **y)
 {
-	float result = 0;
+	double result = 0;
 	for (int j = 0; j < NY; ++j)
-	{
 		for (int i = 0; i < NX; ++i)
-		{
 			result += x[j][i] * y[j][i];
-		}
-	}
 	return result;
 }
 
-void Solver::printArray(float **arr)
+void Solver::printArray(double **arr)
 {
 	for (int j = 0; j < NY; ++j)
 	{
