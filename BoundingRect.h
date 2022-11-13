@@ -22,6 +22,9 @@ public:
 	BoundingRect(const double &xmin, const double &xmax, const double &ymin, const double &ymax);
 
 	bool contains(const double &x, const double &y);
+
+	bool innerShellContains(const double &h, const double &x, const double &y);
+	bool outerShellContains(const double &h, const double &x, const double &y);
 };
 
 

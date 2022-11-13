@@ -6,22 +6,24 @@
 #include <cmath>
 #include <iostream>
 #include <fstream>
-#include <omp.h>
 #include <chrono>
 #include <string>
 #include <ios>
+#include <algorithm>
 
 #include "Domain.h"
 #include "BoundingRect.h"
 #include "MyTypedefs.h"
 
 using namespace myTypedefs;
+typedef std::pair<double,double> pair;
 
 class Solver
 {
 private:
 	double h;
 	int NX, NY;
+	int nmax;
 
 	bool **domainMesh;
 	double **T;
@@ -31,9 +33,13 @@ private:
 
 	double (*tempF)(const double &, const double &);
 
+    bool (*constFluxFCond)(const double &, const double &);
+
+    double (*fluxF)(const double &, const double &);
+
 	double (*lambdaF)(const double &, const double &);
 
-	double (*sourceF)(const double &, const double &, const double &);
+	pair(*sourceF)(const double &, const double &, const double &);
 
 	double T0;
 	double **r, **d, **q;
@@ -83,10 +89,13 @@ public:
 public:
 	Solver(BoundingRect &boundingRect, Domain &domain, const double &h,
 		   double(&tempF)(const double &, const double &),
-		   bool(&constTempF)(const double &, const double &),
+		   bool(&constTempFCond)(const double &, const double &),
+           double(&fluxF)(const double &, const double &),
+           bool(&constFluxFCond)(const double &, const double &),
 		   double(&lambdaF)(const double &, const double &),
-		   double(&sourceF)(const double &, const double &, const double &),
-		   const double T0 = 1.
+		   pair(&sourceF)(const double &, const double &, const double &),
+		   double T0 = 1.,
+		   const int &nmax = 1000
 	);
 
 	~Solver();
